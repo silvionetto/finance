@@ -31,6 +31,14 @@ Environment variables can override the AI settings:
 - `OPENAI_BASE_URL`
 - `OPENAI_MODEL`
 
+The current defaults are:
+
+- API key: `OPENAI_API_KEY`, falling back to `AZURE_OPENAI_API_KEY`
+- Base URL: `https://api.openai.com/v1`
+- Chat model: `gpt-4o-mini`
+
+For a local or alternate OpenAI-compatible provider, set `OPENAI_BASE_URL` and `OPENAI_MODEL` to match that service.
+
 ## Run
 
 ```bash

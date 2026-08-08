@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Finance Chat</title>
+	<style>
+		:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+		body { margin: 0; background: #f5f7fb; color: #1f2937; }
+		main { max-width: 900px; margin: 0 auto; padding: 2rem; }
+		h1 { margin-top: 0; }
+		.card { background: white; border-radius: 16px; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08); padding: 1.5rem; }
+		form { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
+		textarea { width: 100%; min-height: 110px; padding: 0.9rem; border-radius: 12px; border: 1px solid #cbd5e1; font: inherit; resize: vertical; }
+		button { justify-self: start; border: 0; border-radius: 999px; padding: 0.8rem 1.25rem; background: #2563eb; color: white; font: inherit; cursor: pointer; }
+		button:disabled { opacity: 0.6; cursor: wait; }
+		#status { min-height: 1.5rem; color: #475569; }
+		#history { display: grid; gap: 0.75rem; margin-top: 1rem; }
+		.message { border-radius: 14px; padding: 0.9rem 1rem; background: #eff6ff; }
+		.message.user { background: #e2e8f0; }
+		.message.assistant { background: #dbeafe; }
+		.label { display: block; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.35rem; }
+		pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; }
+	</style>
+</head>
+<body>
+<main>
+	<div class="card">
+		<h1>Chat with the AI API</h1>
+		<p>Send prompts to <code>/api/chat</code> and keep the conversation visible below.</p>
+		<form id="chat-form">
+			<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
+			<button id="send" type="submit">Send</button>
+		</form>
+		<div id="status" aria-live="polite"></div>
+		<section id="history" aria-label="Chat history"></section>
+	</div>
+</main>
+<script>
+	const form = document.getElementById('chat-form');
+	const promptInput = document.getElementById('prompt');
+	const sendButton = document.getElementById('send');
+	const history = document.getElementById('history');
+	const status = document.getElementById('status');
+
+	function appendMessage(role, text) {
+		const article = document.createElement('article');
+		article.className = `message ${role}`;
+		const label = document.createElement('span');
+		label.className = 'label';
+		label.textContent = role;
+		const body = document.createElement('pre');
+		body.textContent = text;
+		article.append(label, body);
+		history.appendChild(article);
+	}
+
+	form.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const prompt = promptInput.value.trim();
+		if (!prompt) {
+			return;
+		}
+
+		appendMessage('user', prompt);
+		promptInput.value = '';
+		sendButton.disabled = true;
+		status.textContent = 'Thinking...';
+
+		try {
+			const response = await fetch('/api/chat', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ prompt })
+			});
+
+			if (!response.ok) {
+				throw new Error(`Request failed with status ${response.status}`);
+			}
+
+			const data = await response.json();
+			appendMessage('assistant', data.response ?? '');
+			status.textContent = '';
+		} catch (error) {
+			status.textContent = 'Unable to reach the chat API.';
+			appendMessage('assistant', `Error: ${error.message}`);
+		} finally {
+			sendButton.disabled = false;
+			promptInput.focus();
+		}
+	});
+</script>
+</body>
+</html>

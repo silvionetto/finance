@@ -5,9 +5,11 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 ## What it does
 
 - Serves a chat page at `/`
-- Exposes a JSON chat API at `POST /api/chat`
+- Exposes a JSON chat API at `POST /api/chat` with **conversation memory** support
+- Maintains chat history within a session for contextual responses
 - Uses Thymeleaf for the web UI
 - Provides actuator endpoints via Spring Boot Actuator
+- Integrates AI tools (e.g., date/time functions) for function calling
 
 ## Requirements
 
@@ -63,6 +65,8 @@ gradlew.bat test
 
 ### `POST /api/chat`
 
+Send a message and receive a response. The chat maintains conversation history, so the AI can reference previous messages in the session.
+
 Request:
 
 ```json
@@ -74,3 +78,25 @@ Response:
 ```json
 { "response": "..." }
 ```
+
+### `DELETE /api/chat/memory`
+
+Clear the conversation history and start a fresh session.
+
+Request: (no body)
+
+Response: (204 No Content)
+
+## Chat Memory
+
+The application maintains an in-memory conversation history:
+
+- **Storage**: In-memory (resets on app restart)
+- **Scope**: Single shared session per app instance
+- **Limit**: 100 messages (configurable in `InMemoryChatMemory`)
+- **Behavior**: When the limit is reached, oldest messages are removed (FIFO)
+
+The AI can reference previous messages to provide contextual responses. To start over, call `DELETE /api/chat/memory`.
+
+See `.copilot/instructions.md` for Spring AI API patterns and implementation details.
+

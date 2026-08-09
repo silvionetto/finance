@@ -1,5 +1,6 @@
 package com.silvionetto.finance;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,11 @@ public class ChatController {
 	@PostMapping
 	public ChatResponse chat(@RequestBody ChatRequest request) {
 		return new ChatResponse(this.chatService.chat(request.prompt()));
+	}
+
+	@DeleteMapping("/memory")
+	public void resetMemory() {
+		this.chatService.clearMemory();
 	}
 
 	public record ChatRequest(String prompt) {}

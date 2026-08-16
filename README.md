@@ -9,13 +9,14 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - Maintains chat history within a session for contextual responses
 - Uses Thymeleaf for the web UI
 - Provides actuator endpoints via Spring Boot Actuator
-- Integrates AI tools (e.g., date/time functions) for function calling
+- Integrates AI tools (e.g., date/time functions, ticker lookup, market prices) for function calling
 
 ## Requirements
 
 - Java 25
 - Gradle
 - An OpenAI-compatible API key in `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY`
+- A Polygon.io API key in `POLYGON_API_KEY` for market price lookups
 
 ## Configuration
 
@@ -25,6 +26,8 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - `spring.ai.openai.api-key`
 - `spring.ai.openai.base-url`
 - `spring.ai.openai.chat.options.model`
+- `polygon.api-key`
+- `polygon.base-url`
 
 Environment variables can override the AI settings:
 
@@ -32,6 +35,8 @@ Environment variables can override the AI settings:
 - `AZURE_OPENAI_API_KEY`
 - `OPENAI_BASE_URL`
 - `OPENAI_MODEL`
+- `POLYGON_API_KEY`
+- `POLYGON_BASE_URL`
 
 The current defaults are:
 
@@ -40,6 +45,8 @@ The current defaults are:
 - Chat model: `gpt-4o-mini`
 
 For a local or alternate OpenAI-compatible provider, set `OPENAI_BASE_URL` and `OPENAI_MODEL` to match that service.
+
+The Polygon tool currently uses the `v1/open-close/{symbol}/{date}` endpoint to return open and close prices for a trading day. Provide dates in `YYYY-MM-DD` format.
 
 ## Run
 
@@ -99,4 +106,3 @@ The application maintains an in-memory conversation history:
 The AI can reference previous messages to provide contextual responses. To start over, call `DELETE /api/chat/memory`.
 
 See `.copilot/instructions.md` for Spring AI API patterns and implementation details.
-

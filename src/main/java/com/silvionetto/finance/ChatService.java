@@ -11,29 +11,29 @@ public class ChatService {
 
 	private final ChatClient chatClient;
 	private final DateTimeTools dateTimeTools;
+	private final TickerLookupTool tickerLookupTool;
+	private final PolygonMarketDataTool polygonMarketDataTool;
 	private final InMemoryChatMemory chatMemory;
 
-	public ChatService(ChatClient.Builder chatClientBuilder, DateTimeTools dateTimeTools, InMemoryChatMemory chatMemory) {
+	public ChatService(ChatClient.Builder chatClientBuilder, DateTimeTools dateTimeTools, TickerLookupTool tickerLookupTool, PolygonMarketDataTool polygonMarketDataTool, InMemoryChatMemory chatMemory) {
 		this.dateTimeTools = dateTimeTools;
+		this.tickerLookupTool = tickerLookupTool;
+		this.polygonMarketDataTool = polygonMarketDataTool;
 		this.chatMemory = chatMemory;
 		this.chatClient = chatClientBuilder.build();
 	}
 
 	public String chat(String prompt) {
-		// Add user message to memory
 		this.chatMemory.addUserMessage(prompt);
 
-		// Build message list with conversation history
 		List<Message> messages = new ArrayList<>(this.chatMemory.getMessages());
 
-		// Call ChatClient with full conversation history
 		String response = this.chatClient.prompt()
 			.messages(messages)
-			.tools(this.dateTimeTools)
+			.tools(this.dateTimeTools, this.tickerLookupTool, this.polygonMarketDataTool)
 			.call()
 			.content();
 
-		// Add assistant response to memory
 		this.chatMemory.addAssistantMessage(response);
 
 		return response;

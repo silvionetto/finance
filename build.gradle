@@ -24,6 +24,10 @@ ext {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.postgresql:postgresql:42.7.4'
+	implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
 
 	implementation 'org.springframework.boot:spring-boot-starter-json'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
@@ -43,4 +47,42 @@ dependencyManagement {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.register('scanSecrets') {
+	group = 'verification'
+	description = 'Scans the repository for obvious hardcoded secrets before commits.'
+	doLast {
+		def findings = []
+		def patterns = [
+			~/AKIA[0-9A-Z]{16}/,
+			~/ASIA[0-9A-Z]{16}/,
+			~/ghp_[A-Za-z0-9]{20,}/,
+			~/github_pat_[A-Za-z0-9_]{20,}/,
+			~/sk-[A-Za-z0-9]{20,}/
+		]
+		fileTree(projectDir) {
+			exclude '.git/**'
+			exclude '.gradle/**'
+			exclude 'build/**'
+			exclude '.env'
+		}.matching {
+			include '**/*'
+		}.files.each { file ->
+			if (file.isFile()) {
+				int lineNumber = 0
+				file.eachLine { line ->
+					lineNumber++
+					patterns.each { pattern ->
+						if (line =~ pattern) {
+							findings << "${projectDir.toPath().relativize(file.toPath())}:${lineNumber}: ${line.trim()}"
+						}
+					}
+				}
+			}
+		}
+		if (!findings.isEmpty()) {
+			throw new GradleException("Potential secrets detected:\n" + findings.join('\n'))
+		}
+	}
 }

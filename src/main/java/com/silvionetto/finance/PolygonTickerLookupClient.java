@@ -27,7 +27,7 @@ public class PolygonTickerLookupClient {
 			throw new IllegalStateException("Polygon API key is not configured");
 		}
 
-		List<Map<String, Object>> matches = this.restClient.get()
+		Object response = this.restClient.get()
 			.uri(uriBuilder -> uriBuilder
 				.path("/v3/reference/tickers")
 				.queryParam("search", companyName)
@@ -36,16 +36,37 @@ public class PolygonTickerLookupClient {
 				.queryParam("apiKey", this.properties.apiKey())
 				.build())
 			.retrieve()
-			.body(new org.springframework.core.ParameterizedTypeReference<>() {});
+			.body(Object.class);
 
-		if (matches == null || matches.isEmpty()) {
+		String ticker = extractTicker(response);
+		if (ticker == null || ticker.isBlank()) {
 			throw new IllegalStateException("No Polygon ticker found for company name: " + companyName);
 		}
+		return ticker;
+	}
 
-		Object ticker = matches.getFirst().get("ticker");
-		if (ticker == null || ticker.toString().isBlank()) {
-			throw new IllegalStateException("Ticker symbol missing for company name: " + companyName);
+	private static String extractTicker(Object response) {
+		if (response instanceof Map<?, ?> payload) {
+			Object directTicker = payload.get("ticker");
+			if (directTicker instanceof String directTickerValue && !directTickerValue.isBlank()) {
+				return directTickerValue;
+			}
+			Object results = payload.get("results");
+			if (results instanceof List<?> resultList && !resultList.isEmpty()) {
+				Object first = resultList.getFirst();
+				if (first instanceof Map<?, ?> firstEntry) {
+					Object tickerValue = firstEntry.get("ticker");
+					return tickerValue == null ? null : tickerValue.toString();
+				}
+			}
 		}
-		return ticker.toString();
+		if (response instanceof List<?> matches && !matches.isEmpty()) {
+			Object first = matches.getFirst();
+			if (first instanceof Map<?, ?> firstEntry) {
+				Object tickerValue = firstEntry.get("ticker");
+				return tickerValue == null ? null : tickerValue.toString();
+			}
+		}
+		return null;
 	}
 }

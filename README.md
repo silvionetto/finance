@@ -65,7 +65,7 @@ docker compose up -d
 ```
 
 The compose file uses the `pgvector/pgvector:pg16` image and exposes PostgreSQL on port `5432`.
-Spring AI is configured to initialize the vector store schema on startup, and Flyway is enabled for repeatable migrations.
+Spring AI is configured to initialize the vector store schema on startup, and Flyway migrations are executed explicitly from `FlywayConfig` during application startup. If you already had the database running before the watchlist migration was added, restart the app after the new migration file is present so Flyway can apply it.
 
 The Polygon tool currently uses the `v1/open-close/{symbol}/{date}` endpoint to return open and close prices for a trading day. Provide dates in `YYYY-MM-DD` format.
 
@@ -143,6 +143,24 @@ Clear the conversation history and start a fresh session.
 Request: (no body)
 
 Response: (204 No Content)
+
+### `GET /api/watchlist`
+
+List the current watchlist.
+
+### `POST /api/watchlist`
+
+Add a stock by ticker symbol or company name.
+
+Request:
+
+```json
+{ "symbolOrCompanyName": "AAPL" }
+```
+
+### `DELETE /api/watchlist`
+
+Remove a stock by ticker symbol or company name.
 
 ## Chat Memory
 

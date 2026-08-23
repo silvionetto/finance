@@ -13,12 +13,14 @@ public class ChatService {
 	private final DateTimeTools dateTimeTools;
 	private final TickerLookupTool tickerLookupTool;
 	private final PolygonMarketDataTool polygonMarketDataTool;
+	private final WatchlistTool watchlistTool;
 	private final InMemoryChatMemory chatMemory;
 
-	public ChatService(ChatClient.Builder chatClientBuilder, DateTimeTools dateTimeTools, TickerLookupTool tickerLookupTool, PolygonMarketDataTool polygonMarketDataTool, InMemoryChatMemory chatMemory) {
+	public ChatService(ChatClient.Builder chatClientBuilder, DateTimeTools dateTimeTools, TickerLookupTool tickerLookupTool, PolygonMarketDataTool polygonMarketDataTool, WatchlistTool watchlistTool, InMemoryChatMemory chatMemory) {
 		this.dateTimeTools = dateTimeTools;
 		this.tickerLookupTool = tickerLookupTool;
 		this.polygonMarketDataTool = polygonMarketDataTool;
+		this.watchlistTool = watchlistTool;
 		this.chatMemory = chatMemory;
 		this.chatClient = chatClientBuilder.build();
 	}
@@ -30,7 +32,7 @@ public class ChatService {
 
 		String response = this.chatClient.prompt()
 			.messages(messages)
-			.tools(this.dateTimeTools, this.tickerLookupTool, this.polygonMarketDataTool)
+			.tools(this.dateTimeTools, this.tickerLookupTool, this.polygonMarketDataTool, this.watchlistTool)
 			.call()
 			.content();
 

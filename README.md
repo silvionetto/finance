@@ -69,6 +69,35 @@ Spring AI is configured to initialize the vector store schema on startup, and Fl
 
 The Polygon tool currently uses the `v1/open-close/{symbol}/{date}` endpoint to return open and close prices for a trading day. Provide dates in `YYYY-MM-DD` format.
 
+## Troubleshooting (Frequent Issues)
+
+### App fails to start with `Failed to obtain JDBC Connection` / `Connection to localhost:5432 refused`
+
+If startup fails with errors like:
+
+- `Error creating bean with name 'vectorStore'`
+- `Failed to obtain JDBC Connection`
+- `Connection to localhost:5432 refused`
+
+the app cannot connect to PostgreSQL used by pgvector.
+
+Fix options:
+
+1. Start local Postgres (recommended for local development):
+
+   ```bash
+   docker compose up -d postgres
+   ```
+
+2. Point Spring to another running PostgreSQL instance by setting:
+   - `SPRING_DATASOURCE_URL`
+   - `SPRING_DATASOURCE_USERNAME`
+   - `SPRING_DATASOURCE_PASSWORD`
+
+3. Temporarily run without vector store/Flyway:
+   - `SPRING_AI_VECTORSTORE_PGVECTOR_ENABLED=false`
+   - `SPRING_FLYWAY_ENABLED=false`
+
 ## Run
 
 ```bash

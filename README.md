@@ -17,7 +17,7 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - Gradle
 - An OpenAI-compatible API key in `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY`
 - A Polygon.io API key in `POLYGON_API_KEY` for market price lookups
-- A local PostgreSQL database with pgvector support for watchlist persistence and semantic search
+- A local PostgreSQL database with pgvector support for watchlist persistence, ticker catalog storage, and semantic search
 
 ## Configuration
 

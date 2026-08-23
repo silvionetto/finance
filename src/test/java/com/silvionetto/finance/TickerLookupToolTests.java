@@ -2,7 +2,6 @@ package com.silvionetto.finance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,7 +33,7 @@ class TickerLookupToolTests {
 		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonProvider);
 
 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
-		verify(catalog, never()).save(anyList());
+		verify(catalog, never()).upsert(org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(polygonClient);
 	}
 
@@ -51,7 +50,7 @@ class TickerLookupToolTests {
 		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonProvider);
 
 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
-		verify(catalog).save(eq(List.of(new CompanyTickerCatalog.CompanyTickerEntry("Apple Inc.", "AAPL", "POLYGON"))));
+		verify(catalog).upsert(eq(new CompanyTickerCatalog.CompanyTickerEntry("Apple Inc.", "AAPL", "POLYGON")));
 	}
 
 	@Test

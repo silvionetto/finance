@@ -43,9 +43,7 @@ public class TickerLookupTool {
 				List<CompanyTickerCatalog.CompanyTickerEntry> current = this.companyTickerCatalog.load();
 				boolean exists = current.stream().anyMatch(entry -> polygonTicker.equalsIgnoreCase(entry.ticker_symbol()));
 				if (!exists) {
-					List<CompanyTickerCatalog.CompanyTickerEntry> refreshed = new java.util.ArrayList<>(current);
-					refreshed.add(new CompanyTickerCatalog.CompanyTickerEntry(companyName, polygonTicker, "POLYGON"));
-					this.companyTickerCatalog.save(refreshed);
+					this.companyTickerCatalog.upsert(new CompanyTickerCatalog.CompanyTickerEntry(companyName, polygonTicker, "POLYGON"));
 				}
 				return polygonTicker;
 			}

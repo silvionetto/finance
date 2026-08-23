@@ -13,12 +13,14 @@ public class ChatService {
 	private final DateTimeTools dateTimeTools;
 	private final TickerLookupTool tickerLookupTool;
 	private final PolygonMarketDataTool polygonMarketDataTool;
+	private final B3MarketDataTool b3MarketDataTool;
 	private final InMemoryChatMemory chatMemory;
 
-	public ChatService(ChatClient.Builder chatClientBuilder, DateTimeTools dateTimeTools, TickerLookupTool tickerLookupTool, PolygonMarketDataTool polygonMarketDataTool, InMemoryChatMemory chatMemory) {
+	public ChatService(ChatClient.Builder chatClientBuilder, DateTimeTools dateTimeTools, TickerLookupTool tickerLookupTool, PolygonMarketDataTool polygonMarketDataTool, B3MarketDataTool b3MarketDataTool, InMemoryChatMemory chatMemory) {
 		this.dateTimeTools = dateTimeTools;
 		this.tickerLookupTool = tickerLookupTool;
 		this.polygonMarketDataTool = polygonMarketDataTool;
+		this.b3MarketDataTool = b3MarketDataTool;
 		this.chatMemory = chatMemory;
 		this.chatClient = chatClientBuilder.build();
 	}
@@ -30,7 +32,7 @@ public class ChatService {
 
 		String response = this.chatClient.prompt()
 			.messages(messages)
-			.tools(this.dateTimeTools, this.tickerLookupTool, this.polygonMarketDataTool)
+			.tools(this.dateTimeTools, this.tickerLookupTool, this.polygonMarketDataTool, this.b3MarketDataTool)
 			.call()
 			.content();
 

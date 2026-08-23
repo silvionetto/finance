@@ -17,6 +17,7 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - Gradle
 - An OpenAI-compatible API key in `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY`
 - A Polygon.io API key in `POLYGON_API_KEY` for market price lookups
+- B3 access is currently implemented as public page scraping for single-symbol latest price lookups
 
 ## Configuration
 
@@ -28,6 +29,7 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - `spring.ai.openai.chat.options.model`
 - `polygon.api-key`
 - `polygon.base-url`
+- `b3.base-url`
 
 Environment variables can override the AI settings:
 
@@ -37,6 +39,7 @@ Environment variables can override the AI settings:
 - `OPENAI_MODEL`
 - `POLYGON_API_KEY`
 - `POLYGON_BASE_URL`
+- `B3_BASE_URL`
 
 The current defaults are:
 
@@ -47,6 +50,8 @@ The current defaults are:
 For a local or alternate OpenAI-compatible provider, set `OPENAI_BASE_URL` and `OPENAI_MODEL` to match that service.
 
 The Polygon tool currently uses the `v1/open-close/{symbol}/{date}` endpoint to return open and close prices for a trading day. Provide dates in `YYYY-MM-DD` format.
+
+The B3 tool currently scrapes the public `https://www.b3.com.br/pt_br/market-data/` page and returns a best-effort latest price extract for a single symbol. If B3 changes the page structure, the scraper will need to be updated.
 
 ## Run
 

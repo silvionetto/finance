@@ -19,7 +19,7 @@ class ChatControllerTests {
 		ChatService chatService = mock(ChatService.class);
 		when(chatService.chat(anyString())).thenReturn("hello");
 
-		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService)).build();
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext())).build();
 
 		mockMvc.perform(post("/api/chat")
 				.contentType(MediaType.APPLICATION_JSON)

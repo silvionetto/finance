@@ -4,12 +4,13 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 
 ## What it does
 
-- Serves a chat page at `/`
+- Serves a chat page at `/` with a watchlist panel for adding and removing stocks
 - Exposes a JSON chat API at `POST /api/chat` with **conversation memory** support
 - Maintains chat history within a session for contextual responses
 - Uses Thymeleaf for the web UI
 - Provides actuator endpoints via Spring Boot Actuator
-- Integrates AI tools (e.g., date/time functions, ticker lookup, market prices) for function calling
+- Integrates AI tools (e.g., date/time functions, ticker lookup, market prices, Alpaca real-time quotes) for function calling
+- Shows the latest watchlist stock-check snapshot with a simple buy / hold / sell recommendation
 
 ## Requirements
 
@@ -17,6 +18,7 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - Gradle
 - An OpenAI-compatible API key in `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY`
 - A Polygon.io API key in `POLYGON_API_KEY` for market price lookups
+- An Alpaca Market Data API key pair in `ALPACA_API_KEY_ID` and `ALPACA_API_SECRET_KEY` for real-time quotes
 - A local PostgreSQL database with pgvector support for watchlist persistence, ticker catalog storage, and semantic search
 
 ## Configuration
@@ -33,6 +35,10 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - `spring.ai.vectorstore.pgvector.initialize-schema`
 - `polygon.api-key`
 - `polygon.base-url`
+- `alpaca.api-key-id`
+- `alpaca.api-secret-key`
+- `alpaca.base-url`
+- `alpaca.feed`
 
 Environment variables can override the AI settings:
 
@@ -45,6 +51,10 @@ Environment variables can override the AI settings:
 - `SPRING_DATASOURCE_PASSWORD`
 - `POLYGON_API_KEY`
 - `POLYGON_BASE_URL`
+- `ALPACA_API_KEY_ID`
+- `ALPACA_API_SECRET_KEY`
+- `ALPACA_BASE_URL`
+- `ALPACA_FEED`
 
 The current defaults are:
 
@@ -68,6 +78,8 @@ The compose file uses the `pgvector/pgvector:pg16` image and exposes PostgreSQL 
 Spring AI is configured to initialize the vector store schema on startup, and Flyway migrations are executed explicitly from `FlywayConfig` during application startup. If you already had the database running before the watchlist migration was added, restart the app after the new migration file is present so Flyway can apply it.
 
 The Polygon tool currently uses the `v1/open-close/{symbol}/{date}` endpoint to return open and close prices for a trading day. Provide dates in `YYYY-MM-DD` format.
+
+The Alpaca chat tool uses the Market Data API on `data.alpaca.markets` and defaults to the IEX feed. Provide a ticker symbol to get the latest real-time quote.
 
 ## Troubleshooting (Frequent Issues)
 
@@ -105,6 +117,54 @@ gradlew.bat bootRun
 ```
 
 Then open `http://localhost:8080`.
+
+## How to use the app
+
+### 1. Open the UI
+
+Start the app and open `http://localhost:8080`. The page gives you:
+
+- a chat panel for AI prompts
+- a watchlist panel for saving tickers or company names
+- the latest stock-check snapshot with recommendations
+
+### 2. Add a stock to the watchlist
+
+Use the watchlist form in the UI, or call the API directly:
+
+```bash
+curl.exe -X POST http://localhost:8080/api/watchlist -H "Content-Type: application/json" -d "{\"symbolOrCompanyName\":\"AAPL\"}"
+```
+
+You can also use a company name:
+
+```bash
+curl.exe -X POST http://localhost:8080/api/watchlist -H "Content-Type: application/json" -d "{\"symbolOrCompanyName\":\"Apple Inc.\"}"
+```
+
+### 3. Ask the chat API a question
+
+```bash
+curl.exe -X POST http://localhost:8080/api/chat -H "Content-Type: application/json" -d "{\"prompt\":\"Summarize my watchlist and tell me what is moving today.\"}"
+```
+
+The chat keeps conversation memory for the current app session, so follow-up questions can refer to prior messages.
+
+### 4. Check the latest recommendation snapshot
+
+Fetch the current stock-check results:
+
+```bash
+curl.exe http://localhost:8080/api/stock-check
+```
+
+Refresh the snapshot on demand:
+
+```bash
+curl.exe -X POST http://localhost:8080/api/stock-check/refresh
+```
+
+The response includes the latest price data, the recommendation, and a short explanation for each watchlist item.
 
 ## Build
 
@@ -161,6 +221,14 @@ Request:
 ### `DELETE /api/watchlist`
 
 Remove a stock by ticker symbol or company name.
+
+### `GET /api/stock-check`
+
+Return the latest snapshot for the current watchlist, including price, change, recommendation, and explanation.
+
+### `POST /api/stock-check/refresh`
+
+Refresh the stock-check snapshot immediately and return the new results.
 
 ## Chat Memory
 

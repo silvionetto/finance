@@ -21,8 +21,9 @@ class WatchlistControllerTests {
 	@Test
 	void listReturnsEntries() throws Exception {
 		WatchlistService watchlistService = mock(WatchlistService.class);
+		RequestSessionContext requestSessionContext = new RequestSessionContext();
 		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH)));
-		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService)).build();
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService, requestSessionContext)).build();
 
 		mockMvc.perform(get("/api/watchlist"))
 			.andExpect(status().isOk())
@@ -33,7 +34,7 @@ class WatchlistControllerTests {
 	void addAcceptsRequestBody() throws Exception {
 		WatchlistService watchlistService = mock(WatchlistService.class);
 		when(watchlistService.addToWatchlist(anyString())).thenReturn(new WatchlistEntry("default", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH));
-		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService)).build();
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService, new RequestSessionContext())).build();
 
 		mockMvc.perform(post("/api/watchlist")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -46,7 +47,7 @@ class WatchlistControllerTests {
 	void removeAcceptsRequestBody() throws Exception {
 		WatchlistService watchlistService = mock(WatchlistService.class);
 		when(watchlistService.removeFromWatchlist(anyString())).thenReturn(true);
-		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService)).build();
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService, new RequestSessionContext())).build();
 
 		mockMvc.perform(delete("/api/watchlist")
 				.contentType(MediaType.APPLICATION_JSON)

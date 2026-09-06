@@ -1,5 +1,6 @@
 package com.silvionetto.finance;
 
+import jakarta.servlet.http.HttpSession;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,19 +12,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChatController {
 
 	private final ChatService chatService;
+	private final RequestSessionContext requestSessionContext;
 
-	public ChatController(ChatService chatService) {
+	public ChatController(ChatService chatService, RequestSessionContext requestSessionContext) {
 		this.chatService = chatService;
+		this.requestSessionContext = requestSessionContext;
 	}
 
 	@PostMapping
-	public ChatResponse chat(@RequestBody ChatRequest request) {
-		return new ChatResponse(this.chatService.chat(request.prompt()));
+	public ChatResponse chat(HttpSession session, @RequestBody ChatRequest request) {
+		return this.requestSessionContext.withSession(session.getId(), () -> new ChatResponse(this.chatService.chat(request.prompt())));
 	}
 
 	@DeleteMapping("/memory")
-	public void resetMemory() {
-		this.chatService.clearMemory();
+	public void resetMemory(HttpSession session) {
+		this.requestSessionContext.withSession(session.getId(), this.chatService::clearMemory);
 	}
 
 	public record ChatRequest(String prompt) {}

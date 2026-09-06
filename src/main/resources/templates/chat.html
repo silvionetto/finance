@@ -7,33 +7,84 @@
 	<style>
 		:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
 		body { margin: 0; background: #f5f7fb; color: #1f2937; }
-		main { max-width: 900px; margin: 0 auto; padding: 2rem; }
-		h1 { margin-top: 0; }
+		main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+		.layout { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
 		.card { background: white; border-radius: 16px; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08); padding: 1.5rem; }
+		h1, h2 { margin-top: 0; }
 		form { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
-		textarea { width: 100%; min-height: 110px; padding: 0.9rem; border-radius: 12px; border: 1px solid #cbd5e1; font: inherit; resize: vertical; }
+		textarea, input { width: 100%; padding: 0.9rem; border-radius: 12px; border: 1px solid #cbd5e1; font: inherit; box-sizing: border-box; }
+		textarea { min-height: 110px; resize: vertical; }
 		button { justify-self: start; border: 0; border-radius: 999px; padding: 0.8rem 1.25rem; background: #2563eb; color: white; font: inherit; cursor: pointer; }
 		button:disabled { opacity: 0.6; cursor: wait; }
 		#status { min-height: 1.5rem; color: #475569; }
+		#watchlist-status { min-height: 1.5rem; color: #475569; }
 		#history { display: grid; gap: 0.75rem; margin-top: 1rem; }
 		.message { border-radius: 14px; padding: 0.9rem 1rem; background: #eff6ff; }
 		.message.user { background: #e2e8f0; }
 		.message.assistant { background: #dbeafe; }
 		.label { display: block; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.35rem; }
+		.field-label { font-size: 0.9rem; font-weight: 600; color: #334155; }
+		.watchlist-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.75rem; }
+		.watchlist-item { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; }
+		.watchlist-item strong { display: block; font-size: 1rem; }
+		.watchlist-item small { display: block; color: #64748b; margin-top: 0.2rem; }
+		.watchlist-empty { padding: 1rem; border-radius: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; }
+		.watchlist-remove { background: #dc2626; }
+		.watchlist-remove:disabled { cursor: wait; }
+		.stock-check { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; }
+		.stock-check-actions { display: flex; gap: 0.75rem; align-items: center; margin: 1rem 0 0.5rem; }
+		.stock-check-refresh { background: #0f766e; }
+		.stock-check-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.75rem; }
+		.stock-check-item { padding: 0.9rem 1rem; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; }
+		.stock-check-item.error { border-color: #fecaca; background: #fef2f2; }
+		.stock-check-item-header { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; }
+		.stock-check-item strong { display: block; font-size: 1rem; }
+		.stock-check-item small { display: block; color: #64748b; margin-top: 0.2rem; }
+		.stock-check-recommendation { font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; }
+		.stock-check-recommendation.buy { color: #15803d; }
+		.stock-check-recommendation.hold { color: #1d4ed8; }
+		.stock-check-recommendation.sell { color: #b91c1c; }
+		.stock-check-error { color: #b91c1c; margin-top: 0.5rem; }
 		pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; }
+		@media (max-width: 900px) {
+			.layout { grid-template-columns: 1fr; }
+		}
 	</style>
 </head>
 <body>
 <main>
-	<div class="card">
-		<h1>Chat with the AI API</h1>
-		<p>Send prompts to <code>/api/chat</code> and keep the conversation visible below.</p>
-		<form id="chat-form">
-			<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
-			<button id="send" type="submit">Send</button>
-		</form>
-		<div id="status" aria-live="polite"></div>
-		<section id="history" aria-label="Chat history"></section>
+	<div class="layout">
+		<section class="card">
+			<h1>Chat with the AI API</h1>
+			<p>Send prompts to <code>/api/chat</code> and keep the conversation visible below.</p>
+			<form id="chat-form">
+				<label class="field-label" for="prompt">Prompt</label>
+				<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
+				<button id="send" type="submit">Send</button>
+			</form>
+			<div id="status" aria-live="polite"></div>
+			<section id="history" aria-label="Chat history"></section>
+		</section>
+		<aside class="card">
+			<h2>Watchlist</h2>
+			<p>Add a ticker symbol or company name to keep it handy while chatting.</p>
+			<form id="watchlist-form">
+				<label class="field-label" for="symbolOrCompanyName">Ticker or company</label>
+				<input id="symbolOrCompanyName" name="symbolOrCompanyName" placeholder="AAPL or Apple" required>
+				<button id="add-watchlist" type="submit">Add to watchlist</button>
+			</form>
+			<div id="watchlist-status" aria-live="polite"></div>
+			<ul id="watchlist" class="watchlist-list" aria-label="Watchlist"></ul>
+			<section class="stock-check" aria-labelledby="stock-check-title">
+				<h2 id="stock-check-title">Latest stock check</h2>
+				<p>See the most recent recommendation for each watched stock and refresh it on demand.</p>
+				<div class="stock-check-actions">
+					<button id="refresh-stock-check" class="stock-check-refresh" type="button">Refresh stock check</button>
+				</div>
+				<div id="stock-check-status" aria-live="polite"></div>
+				<ul id="stock-check" class="stock-check-list" aria-label="Latest stock check results"></ul>
+			</section>
+		</aside>
 	</div>
 </main>
 <script>
@@ -42,6 +93,15 @@
 	const sendButton = document.getElementById('send');
 	const history = document.getElementById('history');
 	const status = document.getElementById('status');
+	const watchlistForm = document.getElementById('watchlist-form');
+	const watchlistInput = document.getElementById('symbolOrCompanyName');
+	const addWatchlistButton = document.getElementById('add-watchlist');
+	const watchlist = document.getElementById('watchlist');
+	const watchlistStatus = document.getElementById('watchlist-status');
+	const stockCheckStatus = document.getElementById('stock-check-status');
+	const stockCheckList = document.getElementById('stock-check');
+	const refreshStockCheckButton = document.getElementById('refresh-stock-check');
+	const moneyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 	function appendMessage(role, text) {
 		const article = document.createElement('article');
@@ -53,6 +113,202 @@
 		body.textContent = text;
 		article.append(label, body);
 		history.appendChild(article);
+	}
+
+	function readErrorMessage(error, fallback) {
+		if (error instanceof Error && error.message) {
+			return error.message;
+		}
+		return fallback;
+	}
+
+	async function readResponseError(response, fallback) {
+		const body = await response.text();
+		if (body) {
+			try {
+				const payload = JSON.parse(body);
+				if (payload.message) {
+					return payload.message;
+				}
+				if (payload.error) {
+					return payload.error;
+				}
+			} catch {
+				return `${fallback} ${body}`;
+			}
+		}
+		return `${fallback} (status ${response.status})`;
+	}
+
+	function formatWatchlistSubtitle(entry) {
+		if (entry.companyName && entry.companyName.trim()) {
+			return entry.companyName;
+		}
+		if (entry.updatedAt) {
+			return `Added ${new Date(entry.updatedAt).toLocaleString()}`;
+		}
+		return 'Saved in your watchlist';
+	}
+
+	function formatCurrency(value) {
+		if (value === null || value === undefined || value === '') {
+			return 'n/a';
+		}
+		const number = Number(value);
+		if (Number.isNaN(number)) {
+			return String(value);
+		}
+		return moneyFormatter.format(number);
+	}
+
+	function formatPercent(value) {
+		if (value === null || value === undefined || value === '') {
+			return 'n/a';
+		}
+		const number = Number(value);
+		if (Number.isNaN(number)) {
+			return String(value);
+		}
+		const sign = number > 0 ? '+' : '';
+		return `${sign}${number.toFixed(2)}%`;
+	}
+
+	function normalizeRecommendation(value) {
+		if (!value) {
+			return 'hold';
+		}
+		return String(value).toLowerCase();
+	}
+
+	function renderStockCheck(snapshot) {
+		stockCheckList.replaceChildren();
+		const results = Array.isArray(snapshot?.results) ? snapshot.results : [];
+		if (!results.length) {
+			const emptyState = document.createElement('li');
+			emptyState.className = 'watchlist-empty';
+			emptyState.textContent = 'No stock check results yet.';
+			stockCheckList.appendChild(emptyState);
+			return;
+		}
+
+		results.forEach((item) => {
+			const li = document.createElement('li');
+			const hasError = Boolean(item.error);
+			li.className = `stock-check-item${hasError ? ' error' : ''}`;
+
+			const header = document.createElement('div');
+			header.className = 'stock-check-item-header';
+
+			const details = document.createElement('div');
+			const symbol = document.createElement('strong');
+			symbol.textContent = item.symbol ?? 'Unknown symbol';
+			const subtitle = document.createElement('small');
+			subtitle.textContent = item.companyName && item.companyName.trim() && item.companyName.trim() !== item.symbol
+				? item.companyName
+				: 'Latest market snapshot';
+			details.append(symbol, subtitle);
+
+			const recommendation = document.createElement('span');
+			const recommendationValue = normalizeRecommendation(item.recommendation);
+			recommendation.className = `stock-check-recommendation ${recommendationValue}`;
+			recommendation.textContent = hasError ? 'error' : recommendationValue;
+
+			header.append(details, recommendation);
+			li.append(header);
+
+			if (hasError) {
+				const error = document.createElement('div');
+				error.className = 'stock-check-error';
+				error.textContent = item.error;
+				li.appendChild(error);
+			} else {
+				const metrics = document.createElement('small');
+				metrics.textContent = `Price: ${formatCurrency(item.price)} | Change: ${formatCurrency(item.change)} | Change %: ${formatPercent(item.changePercent)}`;
+				const explanation = document.createElement('p');
+				explanation.textContent = item.explanation ?? '';
+				li.append(metrics, explanation);
+			}
+
+			stockCheckList.appendChild(li);
+		});
+	}
+
+	function renderWatchlist(entries) {
+		watchlist.replaceChildren();
+		if (!entries.length) {
+			const emptyState = document.createElement('li');
+			emptyState.className = 'watchlist-empty';
+			emptyState.textContent = 'Your watchlist is empty.';
+			watchlist.appendChild(emptyState);
+			return;
+		}
+
+		entries.forEach((entry) => {
+			const item = document.createElement('li');
+			item.className = 'watchlist-item';
+
+			const details = document.createElement('div');
+			const symbol = document.createElement('strong');
+			symbol.textContent = entry.symbol;
+			const subtitle = document.createElement('small');
+			subtitle.textContent = formatWatchlistSubtitle(entry);
+			details.append(symbol, subtitle);
+
+			const removeButton = document.createElement('button');
+			removeButton.type = 'button';
+			removeButton.className = 'watchlist-remove';
+			removeButton.textContent = 'Remove';
+			removeButton.addEventListener('click', async () => {
+				removeButton.disabled = true;
+				watchlistStatus.textContent = `Removing ${entry.symbol}...`;
+				try {
+					const response = await fetch('/api/watchlist', {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ symbolOrCompanyName: entry.symbol })
+					});
+
+					if (!response.ok) {
+						throw new Error(await readResponseError(response, 'Unable to remove watchlist item.'));
+					}
+
+					await loadWatchlist();
+					watchlistStatus.textContent = `${entry.symbol} removed from the watchlist.`;
+				} catch (error) {
+					watchlistStatus.textContent = readErrorMessage(error, 'Unable to remove watchlist item.');
+					removeButton.disabled = false;
+				}
+			});
+
+			item.append(details, removeButton);
+			watchlist.appendChild(item);
+		});
+	}
+
+	async function loadWatchlist() {
+		const response = await fetch('/api/watchlist');
+		if (!response.ok) {
+			throw new Error(await readResponseError(response, 'Unable to load watchlist.'));
+		}
+
+		const entries = await response.json();
+		renderWatchlist(Array.isArray(entries) ? entries : []);
+	}
+
+	async function loadStockCheck(forceRefresh = false) {
+		stockCheckStatus.textContent = forceRefresh ? 'Refreshing stock check...' : 'Loading latest stock check...';
+		const response = await fetch(forceRefresh ? '/api/stock-check/refresh' : '/api/stock-check', {
+			method: forceRefresh ? 'POST' : 'GET'
+		});
+		if (!response.ok) {
+			throw new Error(await readResponseError(response, 'Unable to load stock check.'));
+		}
+
+		const snapshot = await response.json();
+		renderStockCheck(snapshot);
+		stockCheckStatus.textContent = snapshot?.checkedAt
+			? `Last checked ${new Date(snapshot.checkedAt).toLocaleString()}`
+			: '';
 	}
 
 	form.addEventListener('submit', async (event) => {
@@ -83,11 +339,66 @@
 			status.textContent = '';
 		} catch (error) {
 			status.textContent = 'Unable to reach the chat API.';
-			appendMessage('assistant', `Error: ${error.message}`);
+			appendMessage('assistant', `Error: ${readErrorMessage(error, 'Unable to reach the chat API.')}`);
 		} finally {
 			sendButton.disabled = false;
 			promptInput.focus();
 		}
+	});
+
+	watchlistForm.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const symbolOrCompanyName = watchlistInput.value.trim();
+		if (!symbolOrCompanyName) {
+			watchlistStatus.textContent = 'Enter a ticker symbol or company name.';
+			return;
+		}
+
+		addWatchlistButton.disabled = true;
+		watchlistStatus.textContent = 'Adding to watchlist...';
+
+		try {
+			const response = await fetch('/api/watchlist', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ symbolOrCompanyName })
+			});
+
+			if (!response.ok) {
+				throw new Error(await readResponseError(response, 'Unable to add watchlist item.'));
+			}
+
+			const entry = await response.json();
+			await loadWatchlist();
+			watchlistInput.value = '';
+			watchlistStatus.textContent = `${entry.symbol} added to the watchlist.`;
+		} catch (error) {
+			watchlistStatus.textContent = readErrorMessage(error, 'Unable to add watchlist item.');
+		} finally {
+			addWatchlistButton.disabled = false;
+			watchlistInput.focus();
+		}
+	});
+
+	refreshStockCheckButton.addEventListener('click', async () => {
+		refreshStockCheckButton.disabled = true;
+		try {
+			await loadStockCheck(true);
+		} catch (error) {
+			stockCheckStatus.textContent = readErrorMessage(error, 'Unable to refresh stock check.');
+		} finally {
+			refreshStockCheckButton.disabled = false;
+		}
+	});
+
+	loadWatchlist().catch((error) => {
+		watchlistStatus.textContent = readErrorMessage(error, 'Unable to load watchlist.');
+		renderWatchlist([]);
+	});
+
+	loadStockCheck().catch((error) => {
+		stockCheckStatus.textContent = readErrorMessage(error, 'Unable to load stock check.');
+		renderStockCheck({ results: [] });
 	});
 </script>
 </body>

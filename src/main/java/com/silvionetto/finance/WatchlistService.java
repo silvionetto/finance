@@ -8,30 +8,34 @@ import org.springframework.stereotype.Service;
 @Service
 public class WatchlistService {
 
-	public static final String DEFAULT_OWNER_ID = "default";
-
 	private final WatchlistRepository watchlistRepository;
 	private final TickerLookupTool tickerLookupTool;
+	private final RequestSessionContext requestSessionContext;
 
-	public WatchlistService(WatchlistRepository watchlistRepository, TickerLookupTool tickerLookupTool) {
+	public WatchlistService(WatchlistRepository watchlistRepository, TickerLookupTool tickerLookupTool, RequestSessionContext requestSessionContext) {
 		this.watchlistRepository = watchlistRepository;
 		this.tickerLookupTool = tickerLookupTool;
+		this.requestSessionContext = requestSessionContext;
 	}
 
 	public List<WatchlistEntry> listWatchlist() {
-		return this.watchlistRepository.findAllByOwnerId(DEFAULT_OWNER_ID);
+		return this.watchlistRepository.findAllByOwnerId(currentOwnerId());
 	}
 
 	public WatchlistEntry addToWatchlist(String symbolOrCompanyName) {
 		String symbol = resolveSymbol(symbolOrCompanyName);
 		String normalized = normalize(symbol);
 		String companyName = symbolOrCompanyName == null ? null : symbolOrCompanyName.trim();
-		return this.watchlistRepository.save(DEFAULT_OWNER_ID, normalized, companyName, Instant.now());
+		return this.watchlistRepository.save(currentOwnerId(), normalized, companyName, Instant.now());
 	}
 
 	public boolean removeFromWatchlist(String symbolOrCompanyName) {
 		String symbol = resolveSymbol(symbolOrCompanyName);
-		return this.watchlistRepository.deleteByOwnerIdAndSymbol(DEFAULT_OWNER_ID, normalize(symbol));
+		return this.watchlistRepository.deleteByOwnerIdAndSymbol(currentOwnerId(), normalize(symbol));
+	}
+
+	private String currentOwnerId() {
+		return this.requestSessionContext.requireCurrentSessionId();
 	}
 
 	private String resolveSymbol(String symbolOrCompanyName) {
@@ -40,7 +44,7 @@ public class WatchlistService {
 		}
 		String trimmed = symbolOrCompanyName.trim();
 		if (trimmed.matches("[A-Za-z0-9.\\-]+")) {
-			return trimmed;
+			return this.tickerLookupTool.canonicalizeSymbol(trimmed);
 		}
 		return this.tickerLookupTool.lookupTickerSymbol(trimmed);
 	}

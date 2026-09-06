@@ -1,12 +1,15 @@
 package com.silvionetto.finance;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class TickerLookupTool {
@@ -14,11 +17,22 @@ public class TickerLookupTool {
 	private final RestClient restClient;
 	private final FinancialModelingPrepProperties properties;
 	private final CompanyTickerCatalog companyTickerCatalog;
+	private final BrapiMarketDataTool brapiMarketDataTool;
+	private final AlpacaMarketDataTool alpacaMarketDataTool;
 	private final PolygonTickerLookupClient polygonTickerLookupClient;
 
-	public TickerLookupTool(RestClient.Builder restClientBuilder, FinancialModelingPrepProperties properties, CompanyTickerCatalog companyTickerCatalog, ObjectProvider<PolygonTickerLookupClient> polygonTickerLookupClientProvider) {
+	public TickerLookupTool(
+		RestClient.Builder restClientBuilder,
+		FinancialModelingPrepProperties properties,
+		CompanyTickerCatalog companyTickerCatalog,
+		ObjectProvider<BrapiMarketDataTool> brapiMarketDataToolProvider,
+		ObjectProvider<AlpacaMarketDataTool> alpacaMarketDataToolProvider,
+		ObjectProvider<PolygonTickerLookupClient> polygonTickerLookupClientProvider
+	) {
 		this.properties = properties;
 		this.companyTickerCatalog = companyTickerCatalog;
+		this.brapiMarketDataTool = brapiMarketDataToolProvider.getIfAvailable();
+		this.alpacaMarketDataTool = alpacaMarketDataToolProvider.getIfAvailable();
 		this.polygonTickerLookupClient = polygonTickerLookupClientProvider.getIfAvailable();
 		this.restClient = restClientBuilder.baseUrl(properties.baseUrl()).build();
 	}
@@ -35,6 +49,18 @@ public class TickerLookupTool {
 
 		if (!catalogMatches.isEmpty()) {
 			return catalogMatches.getFirst().ticker_symbol();
+		}
+
+		if (this.brapiMarketDataTool != null) {
+			String brapiTicker = this.brapiMarketDataTool.findTickerSymbol(companyName);
+			if (brapiTicker != null && !brapiTicker.isBlank()) {
+				List<CompanyTickerCatalog.CompanyTickerEntry> current = this.companyTickerCatalog.load();
+				boolean exists = current.stream().anyMatch(entry -> brapiTicker.equalsIgnoreCase(entry.ticker_symbol()));
+				if (!exists) {
+					this.companyTickerCatalog.upsert(new CompanyTickerCatalog.CompanyTickerEntry(companyName, brapiTicker, "BRAPI"));
+				}
+				return brapiTicker;
+			}
 		}
 
 		if (this.polygonTickerLookupClient != null) {
@@ -85,14 +111,26 @@ public class TickerLookupTool {
 		return symbol.toString();
 	}
 
-	private static String normalize(String value) {
-		return value == null ? "" : value.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
-	}
-
-	@Tool(description = "Get the latest quote for a stock ticker symbol using Financial Modeling Prep")
-	public String getQuote(String symbol) {
+	public StockQuote fetchQuote(String symbol) {
 		if (symbol == null || symbol.isBlank()) {
 			throw new IllegalArgumentException("symbol must not be blank");
+		}
+		String resolvedSymbol = canonicalizeSymbol(symbol);
+		if (isBrapiAvailableFor(resolvedSymbol)) {
+			return this.brapiMarketDataTool.fetchQuote(resolvedSymbol);
+		}
+		if (this.alpacaMarketDataTool != null) {
+			try {
+				return this.alpacaMarketDataTool.fetchQuote(resolvedSymbol);
+			} catch (IllegalStateException ex) {
+				if (!isAlpacaUnavailable(ex)) {
+					throw ex;
+				}
+			} catch (RestClientResponseException ex) {
+				if (ex.getStatusCode().value() != 402 && ex.getStatusCode().value() != 404) {
+					throw ex;
+				}
+			}
 		}
 		if (this.properties.apiKey() == null || this.properties.apiKey().isBlank()) {
 			throw new IllegalStateException("Financial Modeling Prep API key is not configured");
@@ -101,20 +139,80 @@ public class TickerLookupTool {
 		List<Map<String, Object>> matches = this.restClient.get()
 			.uri(uriBuilder -> uriBuilder
 				.path("/stable/quote")
-				.queryParam("symbol", symbol)
+				.queryParam("symbol", resolvedSymbol)
 				.queryParam("apikey", this.properties.apiKey())
 				.build())
 			.retrieve()
-			.body(new org.springframework.core.ParameterizedTypeReference<>() {});
+			.body(new ParameterizedTypeReference<>() {});
 
 		if (matches == null || matches.isEmpty()) {
-			throw new IllegalStateException("No quote found for symbol: " + symbol);
+			throw new IllegalStateException("No quote found for symbol: " + resolvedSymbol);
 		}
 
 		Map<String, Object> quote = matches.getFirst();
-		Object price = quote.get("price");
-		Object change = quote.get("change");
-		Object changePercent = quote.get("changesPercentage");
-		return "symbol=%s, price=%s, change=%s, changesPercentage=%s".formatted(symbol, price, change, changePercent);
+		return new StockQuote(
+			resolvedSymbol,
+			toBigDecimal(quote.get("price")),
+			toBigDecimal(quote.get("change")),
+			toBigDecimal(quote.get("changesPercentage"))
+		);
+	}
+
+	public String canonicalizeSymbol(String symbol) {
+		if (symbol == null || symbol.isBlank()) {
+			throw new IllegalArgumentException("symbol must not be blank");
+		}
+		if (this.brapiMarketDataTool == null) {
+			return symbol.trim();
+		}
+		return this.brapiMarketDataTool.canonicalizeSymbol(symbol);
+	}
+
+	private boolean isBrapiAvailableFor(String symbol) {
+		return this.brapiMarketDataTool != null
+			&& this.brapiMarketDataTool.isConfigured()
+			&& this.brapiMarketDataTool.supportsSymbol(symbol);
+	}
+
+	private static boolean isAlpacaUnavailable(IllegalStateException ex) {
+		String message = ex.getMessage();
+		return message != null && (
+			message.contains("Alpaca API key id is not configured")
+				|| message.contains("Alpaca API secret key is not configured")
+				|| message.contains("Alpaca base URL is not configured")
+				|| message.contains("No Alpaca quote found")
+		);
+	}
+
+	private static String normalize(String value) {
+		return value == null ? "" : value.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
+	}
+
+	@Tool(description = "Get the latest quote for a stock ticker symbol using Financial Modeling Prep")
+	public String getQuote(String symbol) {
+		StockQuote quote = fetchQuote(symbol);
+		return "symbol=%s, price=%s, change=%s, changesPercentage=%s".formatted(
+			quote.symbol(),
+			quote.price(),
+			quote.change(),
+			quote.changePercent()
+		);
+	}
+
+	private static BigDecimal toBigDecimal(Object value) {
+		if (value == null) {
+			return null;
+		}
+		if (value instanceof BigDecimal bigDecimal) {
+			return bigDecimal;
+		}
+		if (value instanceof Number number) {
+			return new BigDecimal(number.toString());
+		}
+		String text = value.toString();
+		if (text.isBlank()) {
+			return null;
+		}
+		return new BigDecimal(text);
 	}
 }

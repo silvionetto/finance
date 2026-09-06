@@ -1,29 +1,35 @@
 package com.silvionetto.finance;
 
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.stereotype.Component;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
- * Simple in-memory chat memory that stores the conversation history.
+ * Simple in-memory chat memory that stores the conversation history per request session.
  * Thread-safe: all mutating and reading operations are synchronized.
  */
 @Component
 public class InMemoryChatMemory {
 
-	private final Deque<Message> messages = new ArrayDeque<>();
+	private final Map<String, Deque<Message>> messagesBySessionId = new HashMap<>();
+	private final RequestSessionContext requestSessionContext;
 	private final int maxMessages;
 
-	public InMemoryChatMemory() {
-		this(100);
+	@Autowired
+	public InMemoryChatMemory(RequestSessionContext requestSessionContext) {
+		this(requestSessionContext, 100);
 	}
 
-	public InMemoryChatMemory(int maxMessages) {
+	InMemoryChatMemory(RequestSessionContext requestSessionContext, int maxMessages) {
+		this.requestSessionContext = requestSessionContext;
 		this.maxMessages = maxMessages;
 	}
 
@@ -36,6 +42,7 @@ public class InMemoryChatMemory {
 	}
 
 	private void addMessage(Message message) {
+		Deque<Message> messages = currentMessages();
 		messages.addLast(message);
 		if (messages.size() > maxMessages) {
 			messages.removeFirst();
@@ -43,15 +50,19 @@ public class InMemoryChatMemory {
 	}
 
 	public synchronized List<Message> getMessages() {
-		return new ArrayList<>(messages);
+		return new ArrayList<>(currentMessages());
 	}
 
 	public synchronized void clear() {
-		messages.clear();
+		currentMessages().clear();
 	}
 
 	public synchronized int size() {
-		return messages.size();
+		return currentMessages().size();
+	}
+
+	private Deque<Message> currentMessages() {
+		String sessionId = this.requestSessionContext.requireCurrentSessionId();
+		return this.messagesBySessionId.computeIfAbsent(sessionId, ignored -> new ArrayDeque<>());
 	}
 }
-

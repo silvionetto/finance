@@ -26,6 +26,7 @@ class StockCheckServiceTests {
 
 		assertThat(snapshot.results()).hasSize(1);
 		assertThat(snapshot.results().getFirst().recommendation()).isEqualTo(StockRecommendation.SELL);
+		assertThat(snapshot.results().getFirst().currencyCode()).isEqualTo("USD");
 	}
 
 	@Test

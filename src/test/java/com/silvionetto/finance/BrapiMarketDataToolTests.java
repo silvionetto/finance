@@ -47,6 +47,7 @@ class BrapiMarketDataToolTests {
 		assertThat(quote.price()).isEqualByComparingTo("41.18");
 		assertThat(quote.change()).isEqualByComparingTo("-0.58");
 		assertThat(quote.changePercent()).isEqualByComparingTo("-1.39");
+		assertThat(quote.currencyCode()).isEqualTo("BRL");
 		server.verify();
 	}
 

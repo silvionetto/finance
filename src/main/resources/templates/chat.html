@@ -101,8 +101,6 @@
 	const stockCheckStatus = document.getElementById('stock-check-status');
 	const stockCheckList = document.getElementById('stock-check');
 	const refreshStockCheckButton = document.getElementById('refresh-stock-check');
-	const moneyFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-
 	function appendMessage(role, text) {
 		const article = document.createElement('article');
 		article.className = `message ${role}`;
@@ -150,7 +148,7 @@
 		return 'Saved in your watchlist';
 	}
 
-	function formatCurrency(value) {
+	function formatCurrency(value, currencyCode) {
 		if (value === null || value === undefined || value === '') {
 			return 'n/a';
 		}
@@ -158,7 +156,9 @@
 		if (Number.isNaN(number)) {
 			return String(value);
 		}
-		return moneyFormatter.format(number);
+		const resolvedCurrencyCode = currencyCode && String(currencyCode).trim() ? String(currencyCode).trim().toUpperCase() : 'USD';
+		const locale = resolvedCurrencyCode === 'BRL' ? 'pt-BR' : 'en-US';
+		return new Intl.NumberFormat(locale, { style: 'currency', currency: resolvedCurrencyCode }).format(number);
 	}
 
 	function formatPercent(value) {
@@ -223,7 +223,7 @@
 				li.appendChild(error);
 			} else {
 				const metrics = document.createElement('small');
-				metrics.textContent = `Price: ${formatCurrency(item.price)} | Change: ${formatCurrency(item.change)} | Change %: ${formatPercent(item.changePercent)}`;
+				metrics.textContent = `Price: ${formatCurrency(item.price, item.currencyCode)} | Change: ${formatCurrency(item.change, item.currencyCode)} | Change %: ${formatPercent(item.changePercent)}`;
 				const explanation = document.createElement('p');
 				explanation.textContent = item.explanation ?? '';
 				li.append(metrics, explanation);

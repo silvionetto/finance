@@ -28,6 +28,7 @@ class StockCheckControllerTests {
 				new BigDecimal("200"),
 				new BigDecimal("10"),
 				new BigDecimal("6"),
+				"USD",
 				StockRecommendation.SELL,
 				"Price is up 6%, which is a strong move, so trim or sell if you want to lock in gains."
 			))
@@ -38,6 +39,7 @@ class StockCheckControllerTests {
 		mockMvc.perform(get("/api/stock-check"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.results[0].symbol").value("AAPL"))
+			.andExpect(jsonPath("$.results[0].currencyCode").value("USD"))
 			.andExpect(jsonPath("$.results[0].recommendation").value("SELL"));
 	}
 

@@ -163,6 +163,7 @@ class TickerLookupToolTests {
 		assertThat(quote.price()).isEqualByComparingTo("327.45");
 		assertThat(quote.change()).isEqualByComparingTo("2.49");
 		assertThat(quote.changePercent()).isEqualByComparingTo("0.7662481536");
+		assertThat(quote.currencyCode()).isEqualTo("USD");
 		server.verify();
 	}
 
@@ -189,6 +190,7 @@ class TickerLookupToolTests {
 
 		assertThat(quote.symbol()).isEqualTo("BHIA3");
 		assertThat(quote.price()).isEqualByComparingTo("5.12");
+		assertThat(quote.currencyCode()).isEqualTo("BRL");
 	}
 
 	@Test
@@ -220,6 +222,7 @@ class TickerLookupToolTests {
 
 		assertThat(quote.symbol()).isEqualTo("PETR4");
 		assertThat(quote.price()).isEqualByComparingTo("41.18");
+		assertThat(quote.currencyCode()).isEqualTo("BRL");
 		verify(brapi, never()).fetchQuote("PETR4");
 		server.verify();
 	}

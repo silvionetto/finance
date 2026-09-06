@@ -1,6 +1,7 @@
 package com.silvionetto.finance;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,6 +21,7 @@ public class StockRecommendationEngine {
 				quote.price(),
 				quote.change(),
 				null,
+				quote.currencyCode(),
 				StockRecommendation.HOLD,
 				"No percentage change was available, so hold for now."
 			);
@@ -32,6 +34,7 @@ public class StockRecommendationEngine {
 				quote.price(),
 				quote.change(),
 				changePercent,
+				quote.currencyCode(),
 				StockRecommendation.SELL,
 				"Price is up %s%%, which is a strong move, so trim or sell if you want to lock in gains.".formatted(formatPercent(changePercent))
 			);
@@ -44,6 +47,7 @@ public class StockRecommendationEngine {
 				quote.price(),
 				quote.change(),
 				changePercent,
+				quote.currencyCode(),
 				StockRecommendation.BUY,
 				"Price is down %s%%, which is a meaningful drop, so this is a buy/watch signal.".formatted(formatPercent(changePercent))
 			);
@@ -55,6 +59,7 @@ public class StockRecommendationEngine {
 			quote.price(),
 			quote.change(),
 			changePercent,
+			quote.currencyCode(),
 			StockRecommendation.HOLD,
 			"Price moved %s%%, which is within the hold range.".formatted(formatPercent(changePercent))
 		);
@@ -72,7 +77,7 @@ public class StockRecommendationEngine {
 	}
 
 	private static String formatPercent(BigDecimal value) {
-		return value.stripTrailingZeros().toPlainString();
+		return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
 	}
 
 	private static BigDecimal effectiveChangePercent(StockQuote quote) {

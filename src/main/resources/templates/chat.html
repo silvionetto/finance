@@ -158,7 +158,23 @@
 		}
 		const resolvedCurrencyCode = currencyCode && String(currencyCode).trim() ? String(currencyCode).trim().toUpperCase() : 'USD';
 		const locale = resolvedCurrencyCode === 'BRL' ? 'pt-BR' : 'en-US';
-		return new Intl.NumberFormat(locale, { style: 'currency', currency: resolvedCurrencyCode }).format(number);
+		const parts = new Intl.NumberFormat(locale, { style: 'currency', currency: resolvedCurrencyCode }).formatToParts(number);
+		return parts.reduce((formatted, part, index) => {
+			if (part.type === 'literal' && /^\s+$/.test(part.value)) {
+				const previousPart = parts[index - 1];
+				const nextPart = parts[index + 1];
+				if (previousPart?.type === 'currency' || nextPart?.type === 'currency') {
+					return `${formatted} `;
+				}
+			}
+			if (part.type === 'currency') {
+				const nextPart = parts[index + 1];
+				if (nextPart && nextPart.type !== 'literal' && nextPart.type !== 'currency') {
+					return `${formatted}${part.value} `;
+				}
+			}
+			return `${formatted}${part.value}`;
+		}, '');
 	}
 
 	function formatPercent(value) {

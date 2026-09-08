@@ -34,6 +34,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+	implementation 'org.webjars.npm:dompurify:3.2.6'
+	implementation 'org.webjars.npm:marked:15.0.12'
 	testImplementation 'org.springframework.boot:spring-boot-test-autoconfigure'
 	testImplementation 'org.springframework.boot:spring-boot-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

@@ -23,6 +23,65 @@
 		.message.user { background: #e2e8f0; }
 		.message.assistant { background: #dbeafe; }
 		.label { display: block; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.35rem; }
+		.message-body { display: grid; gap: 0.75rem; line-height: 1.5; }
+		.message-body > :first-child { margin-top: 0; }
+		.message-body > :last-child { margin-bottom: 0; }
+		.message-body p,
+		.message-body ul,
+		.message-body ol,
+		.message-body blockquote,
+		.message-body pre,
+		.message-body table,
+		.message-body hr { margin: 0; }
+		.message-body ul,
+		.message-body ol { padding-left: 1.5rem; }
+		.message-body li + li { margin-top: 0.25rem; }
+		.message-body a { color: #1d4ed8; }
+		.message-body code {
+			font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+			background: rgba(15, 23, 42, 0.08);
+			border-radius: 6px;
+			padding: 0.15rem 0.35rem;
+			font-size: 0.95em;
+		}
+		.message-body pre {
+			padding: 0.9rem 1rem;
+			border-radius: 12px;
+			background: #0f172a;
+			color: #e2e8f0;
+			overflow-x: auto;
+		}
+		.message-body pre code {
+			background: transparent;
+			padding: 0;
+			border-radius: 0;
+			color: inherit;
+		}
+		.message-body blockquote {
+			padding-left: 1rem;
+			border-left: 4px solid #93c5fd;
+			color: #334155;
+		}
+		.message-body table {
+			width: 100%;
+			border-collapse: collapse;
+			display: block;
+			overflow-x: auto;
+		}
+		.message-body th,
+		.message-body td {
+			border: 1px solid #bfdbfe;
+			padding: 0.55rem 0.7rem;
+			text-align: left;
+		}
+		.message-body th { background: rgba(191, 219, 254, 0.45); }
+		.message-body hr { border: 0; border-top: 1px solid #93c5fd; }
+		.message-plain-text {
+			margin: 0;
+			white-space: pre-wrap;
+			word-break: break-word;
+			font: inherit;
+		}
 		.field-label { font-size: 0.9rem; font-weight: 600; color: #334155; }
 		.watchlist-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.75rem; }
 		.watchlist-item { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; }
@@ -45,7 +104,6 @@
 		.stock-check-recommendation.hold { color: #1d4ed8; }
 		.stock-check-recommendation.sell { color: #b91c1c; }
 		.stock-check-error { color: #b91c1c; margin-top: 0.5rem; }
-		pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; }
 		@media (max-width: 900px) {
 			.layout { grid-template-columns: 1fr; }
 		}
@@ -87,6 +145,8 @@
 		</aside>
 	</div>
 </main>
+<script src="/webjars/dompurify/3.2.6/dist/purify.min.js"></script>
+<script src="/webjars/marked/15.0.12/lib/marked.umd.js"></script>
 <script>
 	const form = document.getElementById('chat-form');
 	const promptInput = document.getElementById('prompt');
@@ -101,16 +161,59 @@
 	const stockCheckStatus = document.getElementById('stock-check-status');
 	const stockCheckList = document.getElementById('stock-check');
 	const refreshStockCheckButton = document.getElementById('refresh-stock-check');
-	function appendMessage(role, text) {
+	function createMessageArticle(role) {
 		const article = document.createElement('article');
 		article.className = `message ${role}`;
 		const label = document.createElement('span');
 		label.className = 'label';
 		label.textContent = role;
+		article.appendChild(label);
+		return article;
+	}
+
+	function appendPlainTextMessage(role, text) {
+		const article = createMessageArticle(role);
 		const body = document.createElement('pre');
-		body.textContent = text;
-		article.append(label, body);
+		body.className = 'message-plain-text';
+		body.textContent = text ?? '';
+		article.appendChild(body);
 		history.appendChild(article);
+	}
+
+	function renderMarkdown(markdown) {
+		if (!window.marked || !window.DOMPurify) {
+			throw new Error('Markdown rendering libraries are unavailable.');
+		}
+
+		const renderedHtml = window.marked.parse(markdown ?? '', {
+			gfm: true,
+			breaks: true
+		});
+		return window.DOMPurify.sanitize(renderedHtml);
+	}
+
+	function appendMarkdownMessage(role, markdown) {
+		const article = createMessageArticle(role);
+		const body = document.createElement('div');
+		body.className = 'message-body';
+		body.innerHTML = renderMarkdown(markdown);
+		body.querySelectorAll('a[href]').forEach((link) => {
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+		});
+		article.appendChild(body);
+		history.appendChild(article);
+	}
+
+	function appendAssistantMessage(text) {
+		try {
+			appendMarkdownMessage('assistant', text);
+			return true;
+		} catch (error) {
+			appendPlainTextMessage('assistant', text);
+			status.textContent = readErrorMessage(error, 'Unable to render the assistant response as Markdown.');
+			return false;
+		}
 	}
 
 	function readErrorMessage(error, fallback) {
@@ -334,7 +437,7 @@
 			return;
 		}
 
-		appendMessage('user', prompt);
+		appendPlainTextMessage('user', prompt);
 		promptInput.value = '';
 		sendButton.disabled = true;
 		status.textContent = 'Thinking...';
@@ -351,11 +454,13 @@
 			}
 
 			const data = await response.json();
-			appendMessage('assistant', data.response ?? '');
-			status.textContent = '';
+			const renderedAsMarkdown = appendAssistantMessage(data.response ?? '');
+			if (renderedAsMarkdown) {
+				status.textContent = '';
+			}
 		} catch (error) {
 			status.textContent = 'Unable to reach the chat API.';
-			appendMessage('assistant', `Error: ${readErrorMessage(error, 'Unable to reach the chat API.')}`);
+			appendPlainTextMessage('assistant', `Error: ${readErrorMessage(error, 'Unable to reach the chat API.')}`);
 		} finally {
 			sendButton.disabled = false;
 			promptInput.focus();

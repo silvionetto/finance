@@ -2,6 +2,7 @@ package com.silvionetto.finance;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,7 +40,17 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("id=\"composer-shell\""));
 		assertThat(template, containsString("id=\"composer-compact-bar\""));
 		assertThat(template, containsString("id=\"toggle-composer\""));
+		assertThat(template, containsString("id=\"thinking-indicator\""));
+		assertThat(template, containsString("class=\"thinking-indicator\""));
+		assertThat(template, containsString("id=\"thinking-message\""));
+		assertThat(template, containsString("id=\"thinking-elapsed\""));
+		assertThat(template, containsString("class=\"thinking-progress\""));
+		assertThat(template, containsString("class=\"thinking-progress-bar\""));
 		assertThat(template, containsString("function scrollHistoryToLatest(force = false)"));
+		assertThat(template, containsString("const thinkingMessages = ["));
+		assertThat(template, containsString("function startThinkingState()"));
+		assertThat(template, containsString("function stopThinkingState(options = {})"));
+		assertThat(template, containsString("function updateThinkingState()"));
 		assertThat(template, containsString("promptInput.addEventListener('keydown'"));
 		assertThat(template, containsString("id=\"sidebar-card\""));
 		assertThat(template, containsString("id=\"toggle-sidebar\""));
@@ -51,5 +62,7 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("const sidebarStorageKey = 'finance.sidebar.collapsed'"));
 		assertThat(template, containsString("function setSidebarCollapsed(collapsed, options = {})"));
 		assertThat(template, containsString("layout.dataset.sidebarCollapsed = String(collapsed);"));
+		assertTrue(template.indexOf("id=\"composer-main\"") < template.indexOf("id=\"thinking-indicator\""));
+		assertTrue(template.indexOf("id=\"thinking-indicator\"") < template.indexOf("id=\"chat-form\""));
 	}
 }

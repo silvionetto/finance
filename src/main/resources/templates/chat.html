@@ -18,6 +18,83 @@
 		button { justify-self: start; border: 0; border-radius: 999px; padding: 0.8rem 1.25rem; background: #2563eb; color: white; font: inherit; cursor: pointer; }
 		button:disabled { opacity: 0.6; cursor: wait; }
 		#status { min-height: 1.5rem; color: #475569; }
+		.thinking-indicator {
+			display: grid;
+			gap: 0.65rem;
+			margin-bottom: 0.9rem;
+			padding: 0.85rem 0.95rem;
+			border-radius: 14px;
+			border: 1px solid #bfdbfe;
+			background: linear-gradient(135deg, rgba(219, 234, 254, 0.88), rgba(239, 246, 255, 0.98));
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+		}
+		.thinking-indicator[hidden] { display: none; }
+		.thinking-indicator-header {
+			display: flex;
+			justify-content: space-between;
+			gap: 0.75rem;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+		.thinking-badge {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.45rem;
+			font-size: 0.82rem;
+			font-weight: 700;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: #1d4ed8;
+		}
+		.thinking-badge::before {
+			content: "";
+			width: 0.7rem;
+			height: 0.7rem;
+			border-radius: 999px;
+			background: #2563eb;
+			box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35);
+			animation: thinking-pulse 1.8s ease-in-out infinite;
+		}
+		.thinking-elapsed {
+			font-size: 0.88rem;
+			color: #475569;
+		}
+		.thinking-progress {
+			position: relative;
+			height: 0.8rem;
+			border-radius: 999px;
+			overflow: hidden;
+			background: rgba(147, 197, 253, 0.38);
+		}
+		.thinking-progress-bar {
+			position: absolute;
+			inset: 0;
+			border-radius: inherit;
+			background: linear-gradient(90deg, #2563eb 0%, #38bdf8 55%, #60a5fa 100%);
+			transform-origin: left center;
+			animation: thinking-progress 1.6s ease-in-out infinite;
+		}
+		.thinking-message {
+			margin: 0;
+			font-size: 0.92rem;
+			font-weight: 600;
+			color: #0f172a;
+		}
+		.thinking-hint {
+			margin: 0;
+			font-size: 0.84rem;
+			color: #475569;
+		}
+		@keyframes thinking-pulse {
+			0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); }
+			70% { box-shadow: 0 0 0 0.55rem rgba(37, 99, 235, 0); }
+			100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+		}
+		@keyframes thinking-progress {
+			0% { transform: translateX(-65%) scaleX(0.3); }
+			50% { transform: translateX(-10%) scaleX(0.72); }
+			100% { transform: translateX(55%) scaleX(0.45); }
+		}
 		#watchlist-status { min-height: 1.5rem; color: #475569; }
 		.chat-card {
 			display: grid;
@@ -321,6 +398,17 @@
 						</div>
 						<button id="toggle-composer" class="composer-toggle" type="button" aria-expanded="true" aria-controls="composer-main">Collapse prompt</button>
 					</div>
+					<section id="thinking-indicator" class="thinking-indicator" aria-live="polite" aria-atomic="true" hidden>
+						<div class="thinking-indicator-header">
+							<span class="thinking-badge">Thinking</span>
+							<span id="thinking-elapsed" class="thinking-elapsed">Starting...</span>
+						</div>
+						<div class="thinking-progress" aria-hidden="true">
+							<div class="thinking-progress-bar"></div>
+						</div>
+						<p id="thinking-message" class="thinking-message">Thinking through your question...</p>
+						<p class="thinking-hint">The response will appear here as soon as it is ready.</p>
+					</section>
 					<form id="chat-form" class="composer-form">
 						<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
 						<div class="composer-actions">
@@ -369,6 +457,9 @@
 	const clearChatButton = document.getElementById('clear-chat');
 	const history = document.getElementById('history');
 	const status = document.getElementById('status');
+	const thinkingIndicator = document.getElementById('thinking-indicator');
+	const thinkingMessage = document.getElementById('thinking-message');
+	const thinkingElapsed = document.getElementById('thinking-elapsed');
 	const chatCard = document.querySelector('.chat-card');
 	const layout = document.getElementById('chat-layout');
 	const composerShell = document.getElementById('composer-shell');
@@ -388,8 +479,16 @@
 	const refreshStockCheckButton = document.getElementById('refresh-stock-check');
 	const composerStorageKey = 'finance.composer.collapsed';
 	const sidebarStorageKey = 'finance.sidebar.collapsed';
+	const thinkingMessages = [
+		'Thinking through your question...',
+		'Looking at the conversation so far...',
+		'Checking the most relevant tools and context...',
+		'Preparing a clear response...'
+	];
 	const scrollThreshold = 48;
 	let shouldStickToBottom = true;
+	let thinkingIntervalId = null;
+	let thinkingStartedAt = null;
 
 	function readStoredComposerState() {
 		try {
@@ -542,6 +641,54 @@
 			appendPlainTextMessage('assistant', text);
 			status.textContent = readErrorMessage(error, 'Unable to render the assistant response as Markdown.');
 			return false;
+		}
+	}
+
+	function formatThinkingElapsed(elapsedMilliseconds) {
+		const elapsedSeconds = Math.max(1, Math.floor(elapsedMilliseconds / 1000));
+		if (elapsedSeconds < 60) {
+			return `Working for ${elapsedSeconds}s`;
+		}
+
+		const minutes = Math.floor(elapsedSeconds / 60);
+		const seconds = elapsedSeconds % 60;
+		return `Working for ${minutes}m ${seconds}s`;
+	}
+
+	function updateThinkingState() {
+		if (!thinkingStartedAt) {
+			return;
+		}
+
+		const elapsedMilliseconds = Date.now() - thinkingStartedAt;
+		const messageIndex = Math.min(
+			thinkingMessages.length - 1,
+			Math.floor(elapsedMilliseconds / 4000)
+		);
+		thinkingMessage.textContent = thinkingMessages[messageIndex];
+		thinkingElapsed.textContent = formatThinkingElapsed(elapsedMilliseconds);
+	}
+
+	function startThinkingState() {
+		stopThinkingState({ preserveStatus: true });
+		thinkingStartedAt = Date.now();
+		thinkingIndicator.hidden = false;
+		status.textContent = '';
+		updateThinkingState();
+		thinkingIntervalId = window.setInterval(updateThinkingState, 1000);
+	}
+
+	function stopThinkingState(options = {}) {
+		const preserveStatus = options.preserveStatus === true;
+		if (thinkingIntervalId !== null) {
+			window.clearInterval(thinkingIntervalId);
+			thinkingIntervalId = null;
+		}
+		thinkingStartedAt = null;
+		thinkingIndicator.hidden = true;
+		if (!preserveStatus) {
+			thinkingElapsed.textContent = 'Starting...';
+			thinkingMessage.textContent = thinkingMessages[0];
 		}
 	}
 
@@ -772,7 +919,7 @@
 		promptInput.value = '';
 		sendButton.disabled = true;
 		clearChatButton.disabled = true;
-		status.textContent = 'Thinking...';
+		startThinkingState();
 
 		try {
 			const response = await fetch('/api/chat', {
@@ -786,14 +933,17 @@
 			}
 
 			const data = await response.json();
+			stopThinkingState({ preserveStatus: false });
 			const renderedAsMarkdown = appendAssistantMessage(data.response ?? '');
 			if (renderedAsMarkdown) {
 				status.textContent = '';
 			}
 		} catch (error) {
+			stopThinkingState({ preserveStatus: false });
 			status.textContent = 'Unable to reach the chat API.';
 			appendPlainTextMessage('assistant', `Error: ${readErrorMessage(error, 'Unable to reach the chat API.')}`);
 		} finally {
+			stopThinkingState({ preserveStatus: false });
 			sendButton.disabled = false;
 			clearChatButton.disabled = false;
 			promptInput.focus();

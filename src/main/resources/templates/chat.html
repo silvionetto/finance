@@ -7,8 +7,9 @@
 	<style>
 		:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
 		body { margin: 0; background: #f5f7fb; color: #1f2937; }
-		main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
-		.layout { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
+		main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; min-height: 100dvh; box-sizing: border-box; }
+		.layout { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; transition: grid-template-columns 0.2s ease; }
+		.layout[data-sidebar-collapsed="true"] { grid-template-columns: minmax(0, 1fr) auto; }
 		.card { background: white; border-radius: 16px; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08); padding: 1.5rem; }
 		h1, h2 { margin-top: 0; }
 		form { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
@@ -18,7 +19,49 @@
 		button:disabled { opacity: 0.6; cursor: wait; }
 		#status { min-height: 1.5rem; color: #475569; }
 		#watchlist-status { min-height: 1.5rem; color: #475569; }
-		#history { display: grid; gap: 0.75rem; margin-top: 1rem; }
+		.chat-card {
+			display: grid;
+			grid-template-rows: auto minmax(0, 1fr) auto;
+			min-height: calc(100dvh - 3rem);
+			max-height: calc(100dvh - 3rem);
+			padding-bottom: 0;
+			overflow: hidden;
+		}
+		.chat-header {
+			display: flex;
+			justify-content: space-between;
+			gap: 1rem;
+			align-items: flex-start;
+			padding-bottom: 1rem;
+		}
+		.chat-header-copy p {
+			margin: 0.5rem 0 0;
+			color: #475569;
+		}
+		.chat-header-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			justify-content: flex-end;
+		}
+		.chat-secondary-action {
+			background: #e2e8f0;
+			color: #0f172a;
+		}
+		.chat-history-panel {
+			min-height: 0;
+			display: grid;
+			grid-template-rows: auto minmax(0, 1fr);
+			border-top: 1px solid #e2e8f0;
+		}
+		#history {
+			display: grid;
+			gap: 0.75rem;
+			align-content: start;
+			overflow-y: auto;
+			padding: 1rem 0 1.25rem;
+			scroll-behavior: smooth;
+		}
 		.message { border-radius: 14px; padding: 0.9rem 1rem; background: #eff6ff; }
 		.message.user { background: #e2e8f0; }
 		.message.assistant { background: #dbeafe; }
@@ -82,12 +125,92 @@
 			word-break: break-word;
 			font: inherit;
 		}
+		.composer-shell {
+			position: sticky;
+			bottom: 0;
+			background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.96) 18%, #ffffff 100%);
+			padding: 0.75rem 0 1.5rem;
+			border-top: 1px solid #e2e8f0;
+		}
+		.composer-status-row {
+			display: flex;
+			justify-content: space-between;
+			gap: 1rem;
+			align-items: center;
+			margin-bottom: 0.75rem;
+		}
+		.composer-status-row p {
+			margin: 0;
+			color: #64748b;
+			font-size: 0.9rem;
+		}
+		.composer-form {
+			margin-bottom: 0;
+		}
+		.composer-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			align-items: center;
+			justify-content: space-between;
+		}
+		.composer-actions button {
+			justify-self: auto;
+		}
+		.composer-actions p {
+			margin: 0;
+			color: #64748b;
+			font-size: 0.9rem;
+		}
 		.field-label { font-size: 0.9rem; font-weight: 600; color: #334155; }
 		.watchlist-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.75rem; }
 		.watchlist-item { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; }
 		.watchlist-item strong { display: block; font-size: 1rem; }
 		.watchlist-item small { display: block; color: #64748b; margin-top: 0.2rem; }
 		.watchlist-empty { padding: 1rem; border-radius: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; }
+		.sidebar-card {
+			display: grid;
+			gap: 1rem;
+			align-content: start;
+			justify-self: stretch;
+			transition: width 0.2s ease, padding 0.2s ease;
+		}
+		.sidebar-header {
+			display: flex;
+			justify-content: space-between;
+			gap: 1rem;
+			align-items: flex-start;
+		}
+		.sidebar-summary {
+			min-width: 0;
+		}
+		.sidebar-header h2 { margin-bottom: 0.4rem; }
+		.sidebar-header p { margin: 0; color: #475569; }
+		.sidebar-toggle {
+			background: #e2e8f0;
+			color: #0f172a;
+			flex-shrink: 0;
+		}
+		.layout[data-sidebar-collapsed="true"] .sidebar-card {
+			width: fit-content;
+			padding: 1rem 0.85rem;
+			justify-self: end;
+		}
+		.layout[data-sidebar-collapsed="true"] .sidebar-summary {
+			display: none;
+		}
+		.layout[data-sidebar-collapsed="true"] .sidebar-header {
+			justify-content: flex-end;
+		}
+		.sidebar-card[data-collapsed="true"] {
+			padding-bottom: 1.25rem;
+		}
+		.sidebar-card[data-collapsed="true"] .sidebar-header {
+			margin-bottom: 0;
+		}
+		.sidebar-content[hidden] {
+			display: none;
+		}
 		.watchlist-remove { background: #dc2626; }
 		.watchlist-remove:disabled { cursor: wait; }
 		.stock-check { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; }
@@ -104,44 +227,85 @@
 		.stock-check-recommendation.hold { color: #1d4ed8; }
 		.stock-check-recommendation.sell { color: #b91c1c; }
 		.stock-check-error { color: #b91c1c; margin-top: 0.5rem; }
-		@media (max-width: 900px) {
+		@media (max-width: 1100px) {
+			main { padding: 1rem; }
 			.layout { grid-template-columns: 1fr; }
+			.layout[data-sidebar-collapsed="true"] { grid-template-columns: 1fr; }
+			.chat-card { min-height: calc(100dvh - 2rem); max-height: calc(100dvh - 2rem); }
+			.composer-shell { padding-bottom: 1rem; }
+		}
+		@media (max-width: 720px) {
+			.chat-header,
+			.composer-status-row,
+			.composer-actions,
+			.sidebar-header,
+			.stock-check-actions,
+			.watchlist-item,
+			.stock-check-item-header { flex-direction: column; align-items: stretch; }
+			.chat-header-actions { justify-content: flex-start; }
+			.chat-card { min-height: calc(100dvh - 2rem); }
+			.card { padding: 1rem; }
+			textarea { min-height: 96px; }
 		}
 	</style>
 </head>
 <body>
 <main>
-	<div class="layout">
-		<section class="card">
-			<h1>Chat with the AI API</h1>
-			<p>Send prompts to <code>/api/chat</code> and keep the conversation visible below.</p>
-			<form id="chat-form">
-				<label class="field-label" for="prompt">Prompt</label>
-				<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
-				<button id="send" type="submit">Send</button>
-			</form>
-			<div id="status" aria-live="polite"></div>
-			<section id="history" aria-label="Chat history"></section>
-		</section>
-		<aside class="card">
-			<h2>Watchlist</h2>
-			<p>Add a ticker symbol or company name to keep it handy while chatting.</p>
-			<form id="watchlist-form">
-				<label class="field-label" for="symbolOrCompanyName">Ticker or company</label>
-				<input id="symbolOrCompanyName" name="symbolOrCompanyName" placeholder="AAPL or Apple" required>
-				<button id="add-watchlist" type="submit">Add to watchlist</button>
-			</form>
-			<div id="watchlist-status" aria-live="polite"></div>
-			<ul id="watchlist" class="watchlist-list" aria-label="Watchlist"></ul>
-			<section class="stock-check" aria-labelledby="stock-check-title">
-				<h2 id="stock-check-title">Latest stock check</h2>
-				<p>See the most recent recommendation for each watched stock and refresh it on demand.</p>
-				<div class="stock-check-actions">
-					<button id="refresh-stock-check" class="stock-check-refresh" type="button">Refresh stock check</button>
+	<div id="chat-layout" class="layout" data-sidebar-collapsed="false">
+		<section class="card chat-card">
+			<div class="chat-header">
+				<div class="chat-header-copy">
+					<h1>Chat with the AI API</h1>
+					<p>Stay in the conversation with a chat-style layout backed by <code>/api/chat</code>.</p>
 				</div>
-				<div id="stock-check-status" aria-live="polite"></div>
-				<ul id="stock-check" class="stock-check-list" aria-label="Latest stock check results"></ul>
-			</section>
+				<div class="chat-header-actions">
+					<button id="clear-chat" class="chat-secondary-action" type="button">New chat</button>
+				</div>
+			</div>
+			<div class="chat-history-panel">
+				<div id="status" aria-live="polite"></div>
+				<section id="history" aria-label="Chat history"></section>
+			</div>
+			<div class="composer-shell">
+				<div class="composer-status-row">
+					<label class="field-label" for="prompt">Prompt</label>
+					<p>Press Enter to send. Use Shift+Enter for a new line.</p>
+				</div>
+				<form id="chat-form" class="composer-form">
+					<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
+					<div class="composer-actions">
+						<p>The latest reply stays in view while the history scrolls independently.</p>
+						<button id="send" type="submit">Send</button>
+					</div>
+				</form>
+			</div>
+		</section>
+		<aside id="sidebar-card" class="card sidebar-card" data-collapsed="false">
+			<div class="sidebar-header">
+				<div class="sidebar-summary">
+					<h2>Watchlist</h2>
+					<p>Add a ticker symbol or company name to keep it handy while chatting.</p>
+				</div>
+				<button id="toggle-sidebar" class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar-content">Hide sidebar</button>
+			</div>
+			<div id="sidebar-content" class="sidebar-content">
+				<form id="watchlist-form">
+					<label class="field-label" for="symbolOrCompanyName">Ticker or company</label>
+					<input id="symbolOrCompanyName" name="symbolOrCompanyName" placeholder="AAPL or Apple" required>
+					<button id="add-watchlist" type="submit">Add to watchlist</button>
+				</form>
+				<div id="watchlist-status" aria-live="polite"></div>
+				<ul id="watchlist" class="watchlist-list" aria-label="Watchlist"></ul>
+				<section class="stock-check" aria-labelledby="stock-check-title">
+					<h2 id="stock-check-title">Latest stock check</h2>
+					<p>See the most recent recommendation for each watched stock and refresh it on demand.</p>
+					<div class="stock-check-actions">
+						<button id="refresh-stock-check" class="stock-check-refresh" type="button">Refresh stock check</button>
+					</div>
+					<div id="stock-check-status" aria-live="polite"></div>
+					<ul id="stock-check" class="stock-check-list" aria-label="Latest stock check results"></ul>
+				</section>
+			</div>
 		</aside>
 	</div>
 </main>
@@ -151,8 +315,13 @@
 	const form = document.getElementById('chat-form');
 	const promptInput = document.getElementById('prompt');
 	const sendButton = document.getElementById('send');
+	const clearChatButton = document.getElementById('clear-chat');
 	const history = document.getElementById('history');
 	const status = document.getElementById('status');
+	const layout = document.getElementById('chat-layout');
+	const sidebarCard = document.getElementById('sidebar-card');
+	const sidebarContent = document.getElementById('sidebar-content');
+	const toggleSidebarButton = document.getElementById('toggle-sidebar');
 	const watchlistForm = document.getElementById('watchlist-form');
 	const watchlistInput = document.getElementById('symbolOrCompanyName');
 	const addWatchlistButton = document.getElementById('add-watchlist');
@@ -161,6 +330,62 @@
 	const stockCheckStatus = document.getElementById('stock-check-status');
 	const stockCheckList = document.getElementById('stock-check');
 	const refreshStockCheckButton = document.getElementById('refresh-stock-check');
+	const sidebarStorageKey = 'finance.sidebar.collapsed';
+	const scrollThreshold = 48;
+	let shouldStickToBottom = true;
+
+	function readStoredSidebarState() {
+		try {
+			return window.localStorage.getItem(sidebarStorageKey) === 'true';
+		} catch {
+			return false;
+		}
+	}
+
+	function persistSidebarState(collapsed) {
+		try {
+			window.localStorage.setItem(sidebarStorageKey, String(collapsed));
+		} catch {
+			// Ignore storage failures and keep the in-memory UI state only.
+		}
+	}
+
+	function setSidebarCollapsed(collapsed, options = {}) {
+		const shouldPersist = options.persist !== false;
+		layout.dataset.sidebarCollapsed = String(collapsed);
+		sidebarCard.dataset.collapsed = String(collapsed);
+		sidebarContent.hidden = collapsed;
+		toggleSidebarButton.setAttribute('aria-expanded', String(!collapsed));
+		toggleSidebarButton.textContent = collapsed ? 'Show sidebar' : 'Hide sidebar';
+		if (shouldPersist) {
+			persistSidebarState(collapsed);
+		}
+	}
+
+	function isHistoryNearBottom() {
+		return history.scrollHeight - history.scrollTop - history.clientHeight <= scrollThreshold;
+	}
+
+	function scrollHistoryToLatest(force = false) {
+		if (!force && !shouldStickToBottom) {
+			return;
+		}
+		window.requestAnimationFrame(() => {
+			history.scrollTop = history.scrollHeight;
+			shouldStickToBottom = true;
+		});
+	}
+
+	history.addEventListener('scroll', () => {
+		shouldStickToBottom = isHistoryNearBottom();
+	});
+
+	toggleSidebarButton.addEventListener('click', () => {
+		setSidebarCollapsed(sidebarCard.dataset.collapsed !== 'true');
+	});
+
+	setSidebarCollapsed(readStoredSidebarState(), { persist: false });
+
 	function createMessageArticle(role) {
 		const article = document.createElement('article');
 		article.className = `message ${role}`;
@@ -178,6 +403,7 @@
 		body.textContent = text ?? '';
 		article.appendChild(body);
 		history.appendChild(article);
+		scrollHistoryToLatest();
 	}
 
 	function renderMarkdown(markdown) {
@@ -203,6 +429,7 @@
 		});
 		article.appendChild(body);
 		history.appendChild(article);
+		scrollHistoryToLatest();
 	}
 
 	function appendAssistantMessage(text) {
@@ -437,9 +664,12 @@
 			return;
 		}
 
+		shouldStickToBottom = true;
 		appendPlainTextMessage('user', prompt);
+		scrollHistoryToLatest(true);
 		promptInput.value = '';
 		sendButton.disabled = true;
+		clearChatButton.disabled = true;
 		status.textContent = 'Thinking...';
 
 		try {
@@ -462,6 +692,38 @@
 			status.textContent = 'Unable to reach the chat API.';
 			appendPlainTextMessage('assistant', `Error: ${readErrorMessage(error, 'Unable to reach the chat API.')}`);
 		} finally {
+			sendButton.disabled = false;
+			clearChatButton.disabled = false;
+			promptInput.focus();
+		}
+	});
+
+	promptInput.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
+			form.requestSubmit();
+		}
+	});
+
+	clearChatButton.addEventListener('click', async () => {
+		clearChatButton.disabled = true;
+		sendButton.disabled = true;
+		status.textContent = 'Starting a new chat...';
+
+		try {
+			const response = await fetch('/api/chat/memory', { method: 'DELETE' });
+			if (!response.ok) {
+				throw new Error(await readResponseError(response, 'Unable to clear the conversation.'));
+			}
+
+			history.replaceChildren();
+			status.textContent = 'Conversation cleared.';
+			shouldStickToBottom = true;
+			scrollHistoryToLatest(true);
+		} catch (error) {
+			status.textContent = readErrorMessage(error, 'Unable to clear the conversation.');
+		} finally {
+			clearChatButton.disabled = false;
 			sendButton.disabled = false;
 			promptInput.focus();
 		}

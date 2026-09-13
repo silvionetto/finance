@@ -34,5 +34,16 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("/webjars/marked/15.0.12/lib/marked.umd.js"));
 		assertThat(template, containsString("function appendMarkdownMessage(role, markdown)"));
 		assertThat(template, containsString("function appendAssistantMessage(text)"));
+		assertThat(template, containsString("class=\"card chat-card\""));
+		assertThat(template, containsString("id=\"clear-chat\""));
+		assertThat(template, containsString("function scrollHistoryToLatest(force = false)"));
+		assertThat(template, containsString("promptInput.addEventListener('keydown'"));
+		assertThat(template, containsString("id=\"sidebar-card\""));
+		assertThat(template, containsString("id=\"toggle-sidebar\""));
+		assertThat(template, containsString("id=\"chat-layout\""));
+		assertThat(template, containsString(".layout[data-sidebar-collapsed=\"true\"]"));
+		assertThat(template, containsString("const sidebarStorageKey = 'finance.sidebar.collapsed'"));
+		assertThat(template, containsString("function setSidebarCollapsed(collapsed, options = {})"));
+		assertThat(template, containsString("layout.dataset.sidebarCollapsed = String(collapsed);"));
 	}
 }

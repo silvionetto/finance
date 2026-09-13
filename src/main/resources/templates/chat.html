@@ -132,20 +132,60 @@
 			padding: 0.75rem 0 1.5rem;
 			border-top: 1px solid #e2e8f0;
 		}
+		.composer-shell[data-collapsed="true"] {
+			padding-bottom: 1rem;
+			background: #ffffff;
+		}
 		.composer-status-row {
 			display: flex;
 			justify-content: space-between;
 			gap: 1rem;
-			align-items: center;
+			align-items: flex-start;
 			margin-bottom: 0.75rem;
 		}
-		.composer-status-row p {
+		.composer-status-copy {
+			display: grid;
+			gap: 0.35rem;
+		}
+		.composer-status-copy p {
 			margin: 0;
 			color: #64748b;
 			font-size: 0.9rem;
 		}
+		.composer-toggle {
+			background: #e2e8f0;
+			color: #0f172a;
+			flex-shrink: 0;
+		}
 		.composer-form {
 			margin-bottom: 0;
+		}
+		.composer-main[hidden],
+		.composer-compact-bar[hidden] {
+			display: none;
+		}
+		.composer-compact-bar {
+			width: 100%;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+			background: #e2e8f0;
+			color: #0f172a;
+			border-radius: 14px;
+			padding: 0.9rem 1rem;
+		}
+		.composer-compact-copy {
+			display: grid;
+			gap: 0.15rem;
+			text-align: left;
+		}
+		.composer-compact-title {
+			font-weight: 600;
+		}
+		.composer-compact-hint {
+			font-size: 0.9rem;
+			color: #475569;
 		}
 		.composer-actions {
 			display: flex;
@@ -265,18 +305,30 @@
 				<div id="status" aria-live="polite"></div>
 				<section id="history" aria-label="Chat history"></section>
 			</div>
-			<div class="composer-shell">
-				<div class="composer-status-row">
-					<label class="field-label" for="prompt">Prompt</label>
-					<p>Press Enter to send. Use Shift+Enter for a new line.</p>
-				</div>
-				<form id="chat-form" class="composer-form">
-					<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
-					<div class="composer-actions">
-						<p>The latest reply stays in view while the history scrolls independently.</p>
-						<button id="send" type="submit">Send</button>
+			<div id="composer-shell" class="composer-shell" data-collapsed="false">
+				<button id="composer-compact-bar" class="composer-compact-bar" type="button" hidden aria-expanded="false" aria-controls="composer-main">
+					<span class="composer-compact-copy">
+						<span class="composer-compact-title">Prompt hidden while you read</span>
+						<span class="composer-compact-hint">Click to reopen the prompt.</span>
+					</span>
+					<span>Open prompt</span>
+				</button>
+				<div id="composer-main" class="composer-main">
+					<div class="composer-status-row">
+						<div class="composer-status-copy">
+							<label class="field-label" for="prompt">Prompt</label>
+							<p>Press Enter to send. Use Shift+Enter for a new line.</p>
+						</div>
+						<button id="toggle-composer" class="composer-toggle" type="button" aria-expanded="true" aria-controls="composer-main">Collapse prompt</button>
 					</div>
-				</form>
+					<form id="chat-form" class="composer-form">
+						<textarea id="prompt" name="prompt" placeholder="Ask something..." required></textarea>
+						<div class="composer-actions">
+							<p>The latest reply stays in view while the history scrolls independently.</p>
+							<button id="send" type="submit">Send</button>
+						</div>
+					</form>
+				</div>
 			</div>
 		</section>
 		<aside id="sidebar-card" class="card sidebar-card" data-collapsed="false">
@@ -317,7 +369,12 @@
 	const clearChatButton = document.getElementById('clear-chat');
 	const history = document.getElementById('history');
 	const status = document.getElementById('status');
+	const chatCard = document.querySelector('.chat-card');
 	const layout = document.getElementById('chat-layout');
+	const composerShell = document.getElementById('composer-shell');
+	const composerMain = document.getElementById('composer-main');
+	const composerCompactBar = document.getElementById('composer-compact-bar');
+	const toggleComposerButton = document.getElementById('toggle-composer');
 	const sidebarCard = document.getElementById('sidebar-card');
 	const sidebarContent = document.getElementById('sidebar-content');
 	const toggleSidebarButton = document.getElementById('toggle-sidebar');
@@ -329,9 +386,26 @@
 	const stockCheckStatus = document.getElementById('stock-check-status');
 	const stockCheckList = document.getElementById('stock-check');
 	const refreshStockCheckButton = document.getElementById('refresh-stock-check');
+	const composerStorageKey = 'finance.composer.collapsed';
 	const sidebarStorageKey = 'finance.sidebar.collapsed';
 	const scrollThreshold = 48;
 	let shouldStickToBottom = true;
+
+	function readStoredComposerState() {
+		try {
+			return window.localStorage.getItem(composerStorageKey) === 'true';
+		} catch {
+			return false;
+		}
+	}
+
+	function persistComposerState(collapsed) {
+		try {
+			window.localStorage.setItem(composerStorageKey, String(collapsed));
+		} catch {
+			// Ignore storage failures and keep the in-memory UI state only.
+		}
+	}
 
 	function readStoredSidebarState() {
 		try {
@@ -361,6 +435,26 @@
 		}
 	}
 
+	function setComposerCollapsed(collapsed, options = {}) {
+		const shouldPersist = options.persist !== false;
+		const shouldFocus = options.focus !== false;
+		chatCard.dataset.composerCollapsed = String(collapsed);
+		composerShell.dataset.collapsed = String(collapsed);
+		composerMain.hidden = collapsed;
+		composerCompactBar.hidden = !collapsed;
+		toggleComposerButton.setAttribute('aria-expanded', String(!collapsed));
+		toggleComposerButton.textContent = collapsed ? 'Expand prompt' : 'Collapse prompt';
+		composerCompactBar.setAttribute('aria-expanded', String(!collapsed));
+		if (shouldPersist) {
+			persistComposerState(collapsed);
+		}
+		if (!collapsed && shouldFocus) {
+			window.requestAnimationFrame(() => {
+				promptInput.focus();
+			});
+		}
+	}
+
 	function isHistoryNearBottom() {
 		return history.scrollHeight - history.scrollTop - history.clientHeight <= scrollThreshold;
 	}
@@ -383,6 +477,15 @@
 		setSidebarCollapsed(sidebarCard.dataset.collapsed !== 'true');
 	});
 
+	toggleComposerButton.addEventListener('click', () => {
+		setComposerCollapsed(composerShell.dataset.collapsed !== 'true', { focus: false });
+	});
+
+	composerCompactBar.addEventListener('click', () => {
+		setComposerCollapsed(false);
+	});
+
+	setComposerCollapsed(readStoredComposerState(), { persist: false, focus: false });
 	setSidebarCollapsed(readStoredSidebarState(), { persist: false });
 
 	function createMessageArticle(role) {

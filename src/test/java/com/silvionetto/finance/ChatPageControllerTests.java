@@ -36,12 +36,18 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("function appendAssistantMessage(text)"));
 		assertThat(template, containsString("class=\"card chat-card\""));
 		assertThat(template, containsString("id=\"clear-chat\""));
+		assertThat(template, containsString("id=\"composer-shell\""));
+		assertThat(template, containsString("id=\"composer-compact-bar\""));
+		assertThat(template, containsString("id=\"toggle-composer\""));
 		assertThat(template, containsString("function scrollHistoryToLatest(force = false)"));
 		assertThat(template, containsString("promptInput.addEventListener('keydown'"));
 		assertThat(template, containsString("id=\"sidebar-card\""));
 		assertThat(template, containsString("id=\"toggle-sidebar\""));
 		assertThat(template, containsString("id=\"chat-layout\""));
 		assertThat(template, containsString(".layout[data-sidebar-collapsed=\"true\"]"));
+		assertThat(template, containsString("const composerStorageKey = 'finance.composer.collapsed'"));
+		assertThat(template, containsString("function setComposerCollapsed(collapsed, options = {})"));
+		assertThat(template, containsString("chatCard.dataset.composerCollapsed = String(collapsed);"));
 		assertThat(template, containsString("const sidebarStorageKey = 'finance.sidebar.collapsed'"));
 		assertThat(template, containsString("function setSidebarCollapsed(collapsed, options = {})"));
 		assertThat(template, containsString("layout.dataset.sidebarCollapsed = String(collapsed);"));

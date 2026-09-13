@@ -2,7 +2,9 @@ package com.silvionetto.finance;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -26,5 +28,17 @@ class ChatControllerTests {
 				.content("{\"prompt\":\"hi\"}"))
 			.andExpect(status().isOk())
 			.andExpect(content().json("{\"response\":\"hello\"}"));
+	}
+
+	@Test
+	void resetMemoryClearsConversation() throws Exception {
+		ChatService chatService = mock(ChatService.class);
+
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext())).build();
+
+		mockMvc.perform(delete("/api/chat/memory"))
+			.andExpect(status().isOk());
+
+		verify(chatService).clearMemory();
 	}
 }

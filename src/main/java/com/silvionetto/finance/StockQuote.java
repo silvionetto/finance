@@ -1,22 +1,21 @@
 package com.silvionetto.finance;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record StockQuote(
 	String symbol,
 	BigDecimal price,
 	BigDecimal change,
 	BigDecimal changePercent,
-	String currencyCode
+	String currencyCode,
+	LocalDate quoteDate
 ) {
 	public StockQuote(String symbol, BigDecimal price, BigDecimal change, BigDecimal changePercent) {
-		this(symbol, price, change, changePercent, defaultCurrencyCode(symbol));
+		this(symbol, price, change, changePercent, MarketSymbolSupport.defaultCurrencyCode(symbol), null);
 	}
 
-	private static String defaultCurrencyCode(String symbol) {
-		if (symbol == null) {
-			return "USD";
-		}
-		return symbol.trim().toUpperCase().matches("^[A-Z]{4,6}\\d{1,2}$") ? "BRL" : "USD";
+	public StockQuote(String symbol, BigDecimal price, BigDecimal change, BigDecimal changePercent, String currencyCode) {
+		this(symbol, price, change, changePercent, currencyCode, null);
 	}
 }

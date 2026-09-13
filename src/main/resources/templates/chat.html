@@ -23,59 +23,114 @@
 		.message.user { background: #e2e8f0; }
 		.message.assistant { background: #dbeafe; }
 		.label { display: block; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.35rem; }
-		.message-body { display: grid; gap: 0.75rem; line-height: 1.5; }
-		.message-body > :first-child { margin-top: 0; }
-		.message-body > :last-child { margin-bottom: 0; }
+		.message-body,
+		.html-preview-body { display: grid; gap: 0.75rem; line-height: 1.5; }
+		.message-body > :first-child,
+		.html-preview-body > :first-child { margin-top: 0; }
+		.message-body > :last-child,
+		.html-preview-body > :last-child { margin-bottom: 0; }
 		.message-body p,
 		.message-body ul,
 		.message-body ol,
 		.message-body blockquote,
 		.message-body pre,
 		.message-body table,
-		.message-body hr { margin: 0; }
+		.message-body hr,
+		.html-preview-body p,
+		.html-preview-body ul,
+		.html-preview-body ol,
+		.html-preview-body blockquote,
+		.html-preview-body pre,
+		.html-preview-body table,
+		.html-preview-body hr { margin: 0; }
 		.message-body ul,
-		.message-body ol { padding-left: 1.5rem; }
-		.message-body li + li { margin-top: 0.25rem; }
-		.message-body a { color: #1d4ed8; }
-		.message-body code {
+		.message-body ol,
+		.html-preview-body ul,
+		.html-preview-body ol { padding-left: 1.5rem; }
+		.message-body li + li,
+		.html-preview-body li + li { margin-top: 0.25rem; }
+		.message-body a,
+		.html-preview-body a { color: #1d4ed8; }
+		.message-body code,
+		.html-preview-body code {
 			font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
 			background: rgba(15, 23, 42, 0.08);
 			border-radius: 6px;
 			padding: 0.15rem 0.35rem;
 			font-size: 0.95em;
 		}
-		.message-body pre {
+		.message-body pre,
+		.html-preview-body pre {
 			padding: 0.9rem 1rem;
 			border-radius: 12px;
 			background: #0f172a;
 			color: #e2e8f0;
 			overflow-x: auto;
 		}
-		.message-body pre code {
+		.message-body pre code,
+		.html-preview-body pre code {
 			background: transparent;
 			padding: 0;
 			border-radius: 0;
 			color: inherit;
 		}
-		.message-body blockquote {
+		.message-body blockquote,
+		.html-preview-body blockquote {
 			padding-left: 1rem;
 			border-left: 4px solid #93c5fd;
 			color: #334155;
 		}
-		.message-body table {
+		.message-body table,
+		.html-preview-body table {
 			width: 100%;
 			border-collapse: collapse;
 			display: block;
 			overflow-x: auto;
 		}
 		.message-body th,
-		.message-body td {
+		.message-body td,
+		.html-preview-body th,
+		.html-preview-body td {
 			border: 1px solid #bfdbfe;
 			padding: 0.55rem 0.7rem;
 			text-align: left;
 		}
-		.message-body th { background: rgba(191, 219, 254, 0.45); }
-		.message-body hr { border: 0; border-top: 1px solid #93c5fd; }
+		.message-body th,
+		.html-preview-body th { background: rgba(191, 219, 254, 0.45); }
+		.message-body hr,
+		.html-preview-body hr { border: 0; border-top: 1px solid #93c5fd; }
+		.message.assistant.html-preview { background: linear-gradient(180deg, #dbeafe 0%, #eef4ff 100%); }
+		.html-preview-card {
+			display: grid;
+			gap: 0.9rem;
+			padding: 1rem;
+			border-radius: 16px;
+			background: #ffffff;
+			border: 1px solid #bfdbfe;
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+		}
+		.html-preview-meta {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.75rem;
+			padding-bottom: 0.75rem;
+			border-bottom: 1px solid #dbeafe;
+			color: #475569;
+			font-size: 0.85rem;
+		}
+		.html-preview-badge {
+			display: inline-flex;
+			align-items: center;
+			border-radius: 999px;
+			padding: 0.2rem 0.6rem;
+			background: #dbeafe;
+			color: #1d4ed8;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+		.html-preview-note { color: #64748b; }
 		.message-plain-text {
 			margin: 0;
 			white-space: pre-wrap;
@@ -180,6 +235,14 @@
 		history.appendChild(article);
 	}
 
+	function normalizeResponseFormat(format) {
+		const normalizedFormat = String(format ?? '').trim().toLowerCase();
+		if (normalizedFormat === 'html' || normalizedFormat === 'text' || normalizedFormat === 'markdown') {
+			return normalizedFormat;
+		}
+		return 'markdown';
+	}
+
 	function renderMarkdown(markdown) {
 		if (!window.marked || !window.DOMPurify) {
 			throw new Error('Markdown rendering libraries are unavailable.');
@@ -192,26 +255,78 @@
 		return window.DOMPurify.sanitize(renderedHtml);
 	}
 
+	function renderHtmlFragment(html) {
+		if (!window.DOMPurify) {
+			throw new Error('HTML rendering library is unavailable.');
+		}
+		return window.DOMPurify.sanitize(html ?? '');
+	}
+
+	function enhanceRenderedLinks(container) {
+		container.querySelectorAll('a[href]').forEach((link) => {
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+		});
+	}
+
 	function appendMarkdownMessage(role, markdown) {
 		const article = createMessageArticle(role);
 		const body = document.createElement('div');
 		body.className = 'message-body';
 		body.innerHTML = renderMarkdown(markdown);
-		body.querySelectorAll('a[href]').forEach((link) => {
-			link.target = '_blank';
-			link.rel = 'noopener noreferrer';
-		});
+		enhanceRenderedLinks(body);
 		article.appendChild(body);
 		history.appendChild(article);
 	}
 
-	function appendAssistantMessage(text) {
+	function appendHtmlPreviewMessage(role, html) {
+		const article = createMessageArticle(role);
+		article.classList.add('html-preview');
+
+		const card = document.createElement('div');
+		card.className = 'html-preview-card';
+
+		const meta = document.createElement('div');
+		meta.className = 'html-preview-meta';
+
+		const badge = document.createElement('span');
+		badge.className = 'html-preview-badge';
+		badge.textContent = 'HTML preview';
+
+		const note = document.createElement('span');
+		note.className = 'html-preview-note';
+		note.textContent = 'Rendered from sanitized assistant HTML';
+
+		meta.append(badge, note);
+
+		const body = document.createElement('div');
+		body.className = 'html-preview-body';
+		body.innerHTML = renderHtmlFragment(html);
+		enhanceRenderedLinks(body);
+
+		card.append(meta, body);
+		article.appendChild(card);
+		history.appendChild(article);
+	}
+
+	function appendAssistantMessage(text, format) {
+		const responseFormat = normalizeResponseFormat(format);
 		try {
+			if (responseFormat === 'html') {
+				appendHtmlPreviewMessage('assistant', text);
+				return true;
+			}
+			if (responseFormat === 'text') {
+				appendPlainTextMessage('assistant', text);
+				return true;
+			}
 			appendMarkdownMessage('assistant', text);
 			return true;
 		} catch (error) {
 			appendPlainTextMessage('assistant', text);
-			status.textContent = readErrorMessage(error, 'Unable to render the assistant response as Markdown.');
+			status.textContent = responseFormat === 'html'
+				? readErrorMessage(error, 'Unable to render the assistant response as HTML.')
+				: readErrorMessage(error, 'Unable to render the assistant response as Markdown.');
 			return false;
 		}
 	}
@@ -292,6 +407,17 @@
 		return `${sign}${number.toFixed(2)}%`;
 	}
 
+	function formatQuoteDate(value) {
+		if (!value) {
+			return 'n/a';
+		}
+		const date = new Date(`${value}T00:00:00`);
+		if (Number.isNaN(date.getTime())) {
+			return String(value);
+		}
+		return date.toLocaleDateString();
+	}
+
 	function normalizeRecommendation(value) {
 		if (!value) {
 			return 'hold';
@@ -342,7 +468,8 @@
 				li.appendChild(error);
 			} else {
 				const metrics = document.createElement('small');
-				metrics.textContent = `Price: ${formatCurrency(item.price, item.currencyCode)} | Change: ${formatCurrency(item.change, item.currencyCode)} | Change %: ${formatPercent(item.changePercent)}`;
+				const quoteDateSuffix = item.quoteDate ? ` | Quote as of: ${formatQuoteDate(item.quoteDate)}` : '';
+				metrics.textContent = `Price: ${formatCurrency(item.price, item.currencyCode)} | Change: ${formatCurrency(item.change, item.currencyCode)} | Change %: ${formatPercent(item.changePercent)}${quoteDateSuffix}`;
 				const explanation = document.createElement('p');
 				explanation.textContent = item.explanation ?? '';
 				li.append(metrics, explanation);
@@ -454,8 +581,8 @@
 			}
 
 			const data = await response.json();
-			const renderedAsMarkdown = appendAssistantMessage(data.response ?? '');
-			if (renderedAsMarkdown) {
+			const renderedAssistantMessage = appendAssistantMessage(data.response ?? '', data.format ?? 'markdown');
+			if (renderedAssistantMessage) {
 				status.textContent = '';
 			}
 		} catch (error) {

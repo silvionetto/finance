@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 class StockRecommendationEngineTests {
@@ -16,6 +17,7 @@ class StockRecommendationEngineTests {
 
 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.SELL);
 		assertThat(result.currencyCode()).isEqualTo("USD");
+		assertThat(result.quoteDate()).isNull();
 		assertThat(result.explanation()).contains("trim or sell");
 	}
 
@@ -64,5 +66,20 @@ class StockRecommendationEngineTests {
 
 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.HOLD);
 		assertThat(result.explanation()).isEqualTo("Price moved -2.51%, which is within the hold range.");
+	}
+
+	@Test
+	void carriesQuoteDateIntoRecommendationResult() {
+		StockRecommendationEngine engine = new StockRecommendationEngine();
+		WatchlistEntry entry = new WatchlistEntry("default", "ASML.AS", "ASML Holding N.V.", Instant.EPOCH, Instant.EPOCH);
+		LocalDate quoteDate = LocalDate.of(2026, 9, 11);
+
+		StockCheckItemResult result = engine.recommend(
+			entry,
+			new StockQuote("ASML.AS", new BigDecimal("675.40"), new BigDecimal("4.10"), new BigDecimal("0.61"), "EUR", quoteDate)
+		);
+
+		assertThat(result.quoteDate()).isEqualTo(quoteDate);
+		assertThat(result.currencyCode()).isEqualTo("EUR");
 	}
 }

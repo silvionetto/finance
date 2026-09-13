@@ -1,6 +1,8 @@
 package com.silvionetto.finance;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -11,6 +13,8 @@ import org.springframework.web.client.RestClient;
 
 @Component
 public class AlpacaMarketDataTool {
+
+	private static final ZoneId AMSTERDAM_ZONE = ZoneId.of("Europe/Amsterdam");
 
 	private final RestClient restClient;
 	private final AlpacaProperties properties;
@@ -171,6 +175,10 @@ public class AlpacaMarketDataTool {
 			}
 		}
 
-		return new StockQuote(symbol, price, change, changePercent);
+		LocalDate quoteDate = MarketSymbolSupport.isAmsterdamSymbol(symbol)
+			? QuoteDateSupport.parseDate(firstPresent(latestTrade, "t", "timestamp"), AMSTERDAM_ZONE)
+			: null;
+
+		return new StockQuote(symbol, price, change, changePercent, MarketSymbolSupport.defaultCurrencyCode(symbol), quoteDate);
 	}
 }

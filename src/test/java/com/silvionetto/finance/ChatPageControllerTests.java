@@ -24,7 +24,7 @@ class ChatPageControllerTests {
 	}
 
 	@Test
-	void chatTemplateIncludesMarkdownRenderingHooks() throws Exception {
+	void chatTemplateIncludesAssistantRenderingHooks() throws Exception {
 		String template = StreamUtils.copyToString(
 			new ClassPathResource("templates/chat.html").getInputStream(),
 			StandardCharsets.UTF_8
@@ -32,7 +32,10 @@ class ChatPageControllerTests {
 
 		assertThat(template, containsString("/webjars/dompurify/3.2.6/dist/purify.min.js"));
 		assertThat(template, containsString("/webjars/marked/15.0.12/lib/marked.umd.js"));
+		assertThat(template, containsString("function normalizeResponseFormat(format)"));
+		assertThat(template, containsString("function appendHtmlPreviewMessage(role, html)"));
 		assertThat(template, containsString("function appendMarkdownMessage(role, markdown)"));
-		assertThat(template, containsString("function appendAssistantMessage(text)"));
+		assertThat(template, containsString("function appendAssistantMessage(text, format)"));
+		assertThat(template, containsString("data.format ?? 'markdown'"));
 	}
 }

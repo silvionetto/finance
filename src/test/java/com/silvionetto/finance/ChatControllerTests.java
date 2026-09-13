@@ -17,7 +17,7 @@ class ChatControllerTests {
 	@Test
 	void chatReturnsResponse() throws Exception {
 		ChatService chatService = mock(ChatService.class);
-		when(chatService.chat(anyString())).thenReturn("hello");
+		when(chatService.chat(anyString())).thenReturn(new ChatReply("hello", ChatResponseFormat.MARKDOWN));
 
 		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext())).build();
 
@@ -25,6 +25,6 @@ class ChatControllerTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"prompt\":\"hi\"}"))
 			.andExpect(status().isOk())
-			.andExpect(content().json("{\"response\":\"hello\"}"));
+			.andExpect(content().json("{\"response\":\"hello\",\"format\":\"markdown\"}"));
 	}
 }

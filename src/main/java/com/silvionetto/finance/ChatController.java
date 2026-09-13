@@ -21,7 +21,10 @@ public class ChatController {
 
 	@PostMapping
 	public ChatResponse chat(HttpSession session, @RequestBody ChatRequest request) {
-		return this.requestSessionContext.withSession(session.getId(), () -> new ChatResponse(this.chatService.chat(request.prompt())));
+		return this.requestSessionContext.withSession(session.getId(), () -> {
+			ChatReply reply = this.chatService.chat(request.prompt());
+			return new ChatResponse(reply.response(), reply.format().value());
+		});
 	}
 
 	@DeleteMapping("/memory")
@@ -30,5 +33,5 @@ public class ChatController {
 	}
 
 	public record ChatRequest(String prompt) {}
-	public record ChatResponse(String response) {}
+	public record ChatResponse(String response, String format) {}
 }

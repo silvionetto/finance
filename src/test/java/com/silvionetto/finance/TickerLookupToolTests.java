@@ -30,12 +30,32 @@ class TickerLookupToolTests {
 
 		PolygonTickerLookupClient polygonClient = mock(PolygonTickerLookupClient.class);
 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(polygonClient);
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 		ObjectProvider<AlpacaMarketDataTool> alpacaProvider = alpacaProvider(null);
-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider, polygonProvider);
+		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider, polygonProvider);
 
 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
 		verify(catalog, never()).upsert(org.mockito.ArgumentMatchers.any());
 		verifyNoInteractions(polygonClient);
+	}
+
+	@Test
+	void returnsAmsterdamTickerFromCatalogAlias() {
+		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+		when(catalog.load()).thenReturn(List.of(new CompanyTickerCatalog.CompanyTickerEntry("ABN AMRO Bank N.V.", "ABN.AS", "AMS")));
+
+		TickerLookupTool tool = new TickerLookupTool(
+			RestClient.builder(),
+			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
+			catalog,
+			polygonMarketDataProvider(null),
+			brapiProvider(null),
+			alpacaProvider(null),
+			polygonProvider(null)
+		);
+
+		assertThat(tool.lookupTickerSymbol("ABN AMRO Bank N.V.")).isEqualTo("ABN.AS");
+		assertThat(tool.lookupTickerSymbol("ABN AMRO")).isEqualTo("ABN.AS");
 	}
 
 	@SuppressWarnings("unchecked")
@@ -47,9 +67,10 @@ class TickerLookupToolTests {
 		PolygonTickerLookupClient polygonClient = mock(PolygonTickerLookupClient.class);
 		when(polygonClient.lookupTickerSymbol(eq("Apple Inc."))).thenReturn("AAPL");
 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(polygonClient);
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 		ObjectProvider<AlpacaMarketDataTool> alpacaProvider = alpacaProvider(null);
 
-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider, polygonProvider);
+		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider, polygonProvider);
 
 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
 		verify(catalog).upsert(eq(new CompanyTickerCatalog.CompanyTickerEntry("Apple Inc.", "AAPL", "POLYGON")));
@@ -61,11 +82,13 @@ class TickerLookupToolTests {
 		when(catalog.load()).thenReturn(List.of(), List.of());
 		BrapiMarketDataTool brapi = mock(BrapiMarketDataTool.class);
 		when(brapi.findTickerSymbol("Petrobras")).thenReturn("PETR4");
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 
 		TickerLookupTool tool = new TickerLookupTool(
 			RestClient.builder(),
 			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
 			catalog,
+			polygonMarketDataProvider,
 			brapiProvider(brapi),
 			alpacaProvider(null),
 			polygonProvider(null)
@@ -80,6 +103,7 @@ class TickerLookupToolTests {
 		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
 		when(catalog.load()).thenReturn(List.of());
 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 
 		RestClient.Builder builder = RestClient.builder();
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -89,9 +113,33 @@ class TickerLookupToolTests {
 				[{"symbol":"AAPL","exchangeShortName":"NASDAQ"}]
 				""", MediaType.APPLICATION_JSON));
 
-		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider(null), polygonProvider);
+		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider(null), polygonProvider);
 
 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
+		server.verify();
+	}
+
+	@Test
+	void prefersAmsterdamListingWhenFmpReturnsAdrAndAmsterdamMatch() {
+		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+		when(catalog.load()).thenReturn(List.of());
+		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo("https://financialmodelingprep.com/stable/search-name?query=ASML%20Holding&limit=10&apikey=fmp-key"))
+			.andExpect(method(HttpMethod.GET))
+			.andRespond(withSuccess("""
+				[
+				  {"symbol":"ASML","name":"ASML Holding N.V.","exchangeShortName":"NASDAQ"},
+				  {"symbol":"ASML.AS","name":"ASML Holding N.V.","exchangeShortName":"AMS"}
+				]
+				""", MediaType.APPLICATION_JSON));
+
+		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider(null), polygonProvider);
+
+		assertThat(tool.lookupTickerSymbol("ASML Holding")).isEqualTo("ASML.AS");
 		server.verify();
 	}
 
@@ -100,6 +148,7 @@ class TickerLookupToolTests {
 		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
 		when(catalog.load()).thenReturn(List.of());
 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 
 		RestClient.Builder builder = RestClient.builder();
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -112,7 +161,7 @@ class TickerLookupToolTests {
 				]
 				""", MediaType.APPLICATION_JSON));
 
-		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider(null), polygonProvider);
+		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider(null), polygonProvider);
 
 		assertThatThrownBy(() -> tool.lookupTickerSymbol("Apple"))
 			.isInstanceOf(IllegalStateException.class)
@@ -127,9 +176,10 @@ class TickerLookupToolTests {
 		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
 		when(catalog.load()).thenReturn(List.of());
 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 		ObjectProvider<AlpacaMarketDataTool> alpacaProvider = alpacaProvider(null);
 
-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider, polygonProvider);
+		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider, polygonProvider);
 
 		assertThatThrownBy(() -> tool.lookupTickerSymbol("Apple Inc."))
 			.isInstanceOf(IllegalStateException.class)
@@ -155,7 +205,7 @@ class TickerLookupToolTests {
 				""", MediaType.APPLICATION_JSON));
 
 		AlpacaMarketDataTool alpaca = new AlpacaMarketDataTool(builder, new AlpacaProperties("key-id", "secret", "https://data.alpaca.markets", "iex"));
-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider(alpaca), polygonProvider(null));
+		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider(null), brapiProvider(null), alpacaProvider(alpaca), polygonProvider(null));
 
 		StockQuote quote = tool.fetchQuote("AAPL");
 
@@ -164,6 +214,7 @@ class TickerLookupToolTests {
 		assertThat(quote.change()).isEqualByComparingTo("2.49");
 		assertThat(quote.changePercent()).isEqualByComparingTo("0.7662481536");
 		assertThat(quote.currencyCode()).isEqualTo("USD");
+		assertThat(quote.quoteDate()).isNull();
 		server.verify();
 	}
 
@@ -176,11 +227,13 @@ class TickerLookupToolTests {
 		when(brapi.canonicalizeSymbol("VVAR3")).thenReturn("BHIA3");
 		when(brapi.supportsSymbol("BHIA3")).thenReturn(true);
 		when(brapi.fetchQuote("BHIA3")).thenReturn(new StockQuote("BHIA3", new java.math.BigDecimal("5.12"), new java.math.BigDecimal("0.10"), new java.math.BigDecimal("1.99")));
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 
 		TickerLookupTool tool = new TickerLookupTool(
 			RestClient.builder(),
 			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
 			catalog,
+			polygonMarketDataProvider,
 			brapiProvider(brapi),
 			alpacaProvider(null),
 			polygonProvider(null)
@@ -200,6 +253,7 @@ class TickerLookupToolTests {
 		BrapiMarketDataTool brapi = mock(BrapiMarketDataTool.class);
 		when(brapi.isConfigured()).thenReturn(false);
 		when(brapi.canonicalizeSymbol("PETR4")).thenReturn("PETR4");
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
 
 		RestClient.Builder builder = RestClient.builder();
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -213,6 +267,7 @@ class TickerLookupToolTests {
 			builder,
 			new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"),
 			catalog,
+			polygonMarketDataProvider,
 			brapiProvider(brapi),
 			alpacaProvider(null),
 			polygonProvider(null)
@@ -225,6 +280,110 @@ class TickerLookupToolTests {
 		assertThat(quote.currencyCode()).isEqualTo("BRL");
 		verify(brapi, never()).fetchQuote("PETR4");
 		server.verify();
+	}
+
+	@Test
+	void returnsEuroQuoteForAmsterdamSymbolWhenFmpProvidesCurrency() {
+		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+		when(catalog.load()).thenReturn(List.of());
+		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo("https://financialmodelingprep.com/stable/quote?symbol=ASML.AS&apikey=fmp-key"))
+			.andExpect(method(HttpMethod.GET))
+			.andRespond(withSuccess("""
+				[{"symbol":"ASML.AS","price":675.40,"change":4.10,"changesPercentage":0.61,"currency":"EUR"}]
+				""", MediaType.APPLICATION_JSON));
+
+		TickerLookupTool tool = new TickerLookupTool(
+			builder,
+			new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"),
+			catalog,
+			polygonMarketDataProvider,
+			brapiProvider(null),
+			alpacaProvider(null),
+			polygonProvider(null)
+		);
+
+		StockQuote quote = tool.fetchQuote("asml.as");
+
+		assertThat(quote.symbol()).isEqualTo("ASML.AS");
+		assertThat(quote.price()).isEqualByComparingTo("675.40");
+		assertThat(quote.currencyCode()).isEqualTo("EUR");
+		server.verify();
+	}
+
+	@Test
+	void returnsQuoteFromPolygonBeforeAlpacaAndFmp() {
+		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+		when(catalog.load()).thenReturn(List.of());
+		PolygonMarketDataTool polygonMarketDataTool = mock(PolygonMarketDataTool.class);
+		when(polygonMarketDataTool.fetchQuote("PNL.AS")).thenReturn(new StockQuote("PNL.AS", new java.math.BigDecimal("10.25"), new java.math.BigDecimal("0.15"), new java.math.BigDecimal("1.49"), "EUR"));
+		AlpacaMarketDataTool alpaca = mock(AlpacaMarketDataTool.class);
+
+		TickerLookupTool tool = new TickerLookupTool(
+			RestClient.builder(),
+			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
+			catalog,
+			polygonMarketDataProvider(polygonMarketDataTool),
+			brapiProvider(null),
+			alpacaProvider(alpaca),
+			polygonProvider(null)
+		);
+
+		StockQuote quote = tool.fetchQuote("PNL.AS");
+
+		assertThat(quote.symbol()).isEqualTo("PNL.AS");
+		assertThat(quote.price()).isEqualByComparingTo("10.25");
+		assertThat(quote.currencyCode()).isEqualTo("EUR");
+		verifyNoInteractions(alpaca);
+	}
+
+	@Test
+	void fallsBackToAlpacaWhenPolygonQuoteIsUnavailable() {
+		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+		when(catalog.load()).thenReturn(List.of());
+		PolygonMarketDataTool polygonMarketDataTool = mock(PolygonMarketDataTool.class);
+		when(polygonMarketDataTool.fetchQuote("PNL.AS")).thenThrow(new IllegalStateException("No Polygon quote found for symbol: PNL.AS"));
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo("https://data.alpaca.markets/v2/stocks/PNL.AS/snapshot?feed=iex"))
+			.andExpect(method(HttpMethod.GET))
+			.andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("APCA-API-KEY-ID", "key-id"))
+			.andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("APCA-API-SECRET-KEY", "secret"))
+			.andRespond(withSuccess("""
+				{
+				  "symbol":"PNL.AS",
+				  "latestTrade":{"symbol":"PNL.AS","p":12.34,"t":"2026-09-03T10:15:30Z"},
+				  "prevDailyBar":{"c":12.00}
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		AlpacaMarketDataTool alpaca = new AlpacaMarketDataTool(builder, new AlpacaProperties("key-id", "secret", "https://data.alpaca.markets", "iex"));
+		TickerLookupTool tool = new TickerLookupTool(
+			RestClient.builder(),
+			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
+			catalog,
+			polygonMarketDataProvider(polygonMarketDataTool),
+			brapiProvider(null),
+			alpacaProvider(alpaca),
+			polygonProvider(null)
+		);
+
+		StockQuote quote = tool.fetchQuote("PNL.AS");
+
+		assertThat(quote.symbol()).isEqualTo("PNL.AS");
+		assertThat(quote.price()).isEqualByComparingTo("12.34");
+		assertThat(quote.currencyCode()).isEqualTo("EUR");
+		server.verify();
+	}
+
+	@SuppressWarnings("unchecked")
+	private static ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider(PolygonMarketDataTool polygonMarketDataTool) {
+		ObjectProvider<PolygonMarketDataTool> provider = mock(ObjectProvider.class);
+		when(provider.getIfAvailable()).thenReturn(polygonMarketDataTool);
+		return provider;
 	}
 
 	@SuppressWarnings("unchecked")

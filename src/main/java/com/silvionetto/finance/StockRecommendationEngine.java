@@ -22,6 +22,7 @@ public class StockRecommendationEngine {
 				quote.change(),
 				null,
 				quote.currencyCode(),
+				quote.quoteDate(),
 				StockRecommendation.HOLD,
 				"No percentage change was available, so hold for now."
 			);
@@ -35,6 +36,7 @@ public class StockRecommendationEngine {
 				quote.change(),
 				changePercent,
 				quote.currencyCode(),
+				quote.quoteDate(),
 				StockRecommendation.SELL,
 				"Price is up %s%%, which is a strong move, so trim or sell if you want to lock in gains.".formatted(formatPercent(changePercent))
 			);
@@ -48,6 +50,7 @@ public class StockRecommendationEngine {
 				quote.change(),
 				changePercent,
 				quote.currencyCode(),
+				quote.quoteDate(),
 				StockRecommendation.BUY,
 				"Price is down %s%%, which is a meaningful drop, so this is a buy/watch signal.".formatted(formatPercent(changePercent))
 			);
@@ -60,6 +63,7 @@ public class StockRecommendationEngine {
 			quote.change(),
 			changePercent,
 			quote.currencyCode(),
+			quote.quoteDate(),
 			StockRecommendation.HOLD,
 			"Price moved %s%%, which is within the hold range.".formatted(formatPercent(changePercent))
 		);

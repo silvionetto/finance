@@ -15,6 +15,7 @@ public class ChatService {
 	private final BrapiMarketDataTool brapiMarketDataTool;
 	private final PolygonMarketDataTool polygonMarketDataTool;
 	private final AlpacaMarketDataTool alpacaMarketDataTool;
+	private final EuronextPriceTool euronextPriceTool;
 	private final WatchlistTool watchlistTool;
 	private final InMemoryChatMemory chatMemory;
 
@@ -25,6 +26,7 @@ public class ChatService {
 		BrapiMarketDataTool brapiMarketDataTool,
 		PolygonMarketDataTool polygonMarketDataTool,
 		AlpacaMarketDataTool alpacaMarketDataTool,
+		EuronextPriceTool euronextPriceTool,
 		WatchlistTool watchlistTool,
 		InMemoryChatMemory chatMemory
 	) {
@@ -33,6 +35,7 @@ public class ChatService {
 		this.brapiMarketDataTool = brapiMarketDataTool;
 		this.polygonMarketDataTool = polygonMarketDataTool;
 		this.alpacaMarketDataTool = alpacaMarketDataTool;
+		this.euronextPriceTool = euronextPriceTool;
 		this.watchlistTool = watchlistTool;
 		this.chatMemory = chatMemory;
 		this.chatClient = chatClientBuilder.build();
@@ -45,7 +48,7 @@ public class ChatService {
 
 		String response = this.chatClient.prompt()
 			.messages(messages)
-			.tools(this.dateTimeTools, this.tickerLookupTool, this.brapiMarketDataTool, this.polygonMarketDataTool, this.alpacaMarketDataTool, this.watchlistTool)
+			.tools(this.dateTimeTools, this.tickerLookupTool, this.brapiMarketDataTool, this.polygonMarketDataTool, this.alpacaMarketDataTool, this.euronextPriceTool, this.watchlistTool)
 			.call()
 			.content();
 

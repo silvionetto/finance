@@ -19,6 +19,7 @@ public class TickerLookupTool {
 	private final CompanyTickerCatalog companyTickerCatalog;
 	private final BrapiMarketDataTool brapiMarketDataTool;
 	private final AlpacaMarketDataTool alpacaMarketDataTool;
+	private final EuronextPriceTool euronextPriceTool;
 	private final PolygonTickerLookupClient polygonTickerLookupClient;
 
 	public TickerLookupTool(
@@ -27,12 +28,14 @@ public class TickerLookupTool {
 		CompanyTickerCatalog companyTickerCatalog,
 		ObjectProvider<BrapiMarketDataTool> brapiMarketDataToolProvider,
 		ObjectProvider<AlpacaMarketDataTool> alpacaMarketDataToolProvider,
+		ObjectProvider<EuronextPriceTool> euronextPriceToolProvider,
 		ObjectProvider<PolygonTickerLookupClient> polygonTickerLookupClientProvider
 	) {
 		this.properties = properties;
 		this.companyTickerCatalog = companyTickerCatalog;
 		this.brapiMarketDataTool = brapiMarketDataToolProvider.getIfAvailable();
 		this.alpacaMarketDataTool = alpacaMarketDataToolProvider.getIfAvailable();
+		this.euronextPriceTool = euronextPriceToolProvider.getIfAvailable();
 		this.polygonTickerLookupClient = polygonTickerLookupClientProvider.getIfAvailable();
 		this.restClient = restClientBuilder.baseUrl(properties.baseUrl()).build();
 	}
@@ -119,6 +122,9 @@ public class TickerLookupTool {
 		if (isBrapiAvailableFor(resolvedSymbol)) {
 			return this.brapiMarketDataTool.fetchQuote(resolvedSymbol);
 		}
+		if (isEuronextAvailableFor(resolvedSymbol)) {
+			return this.euronextPriceTool.fetchQuote(resolvedSymbol);
+		}
 		if (this.alpacaMarketDataTool != null) {
 			try {
 				return this.alpacaMarketDataTool.fetchQuote(resolvedSymbol);
@@ -162,6 +168,9 @@ public class TickerLookupTool {
 		if (symbol == null || symbol.isBlank()) {
 			throw new IllegalArgumentException("symbol must not be blank");
 		}
+		if (this.euronextPriceTool != null && this.euronextPriceTool.supportsInstrument(symbol)) {
+			return this.euronextPriceTool.canonicalizeSymbol(symbol);
+		}
 		if (this.brapiMarketDataTool == null) {
 			return symbol.trim();
 		}
@@ -172,6 +181,12 @@ public class TickerLookupTool {
 		return this.brapiMarketDataTool != null
 			&& this.brapiMarketDataTool.isConfigured()
 			&& this.brapiMarketDataTool.supportsSymbol(symbol);
+	}
+
+	private boolean isEuronextAvailableFor(String symbol) {
+		return this.euronextPriceTool != null
+			&& this.euronextPriceTool.isConfigured()
+			&& this.euronextPriceTool.supportsInstrument(symbol);
 	}
 
 	private static boolean isAlpacaUnavailable(IllegalStateException ex) {

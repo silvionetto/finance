@@ -45,4 +45,22 @@ class StockCheckServiceTests {
 		assertThat(snapshot.results()).hasSize(1);
 		assertThat(snapshot.results().getFirst().error()).contains("API key is not configured");
 	}
+
+	@Test
+	void refreshLatestSnapshotPreservesEuronextCurrencyAndSymbol() {
+		WatchlistService watchlistService = mock(WatchlistService.class);
+		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
+		StockRecommendationEngine engine = new StockRecommendationEngine();
+		RequestSessionContext requestSessionContext = new RequestSessionContext();
+		StockCheckService service = new StockCheckService(watchlistService, tickerLookupTool, engine, requestSessionContext);
+
+		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "ABN.AS", "ABN AMRO", Instant.EPOCH, Instant.EPOCH)));
+		when(tickerLookupTool.fetchQuote("ABN.AS")).thenReturn(new StockQuote("ABN.AS", new BigDecimal("43.08"), new BigDecimal("-0.44"), new BigDecimal("-1.0101102941"), "EUR"));
+
+		StockCheckSnapshot snapshot = requestSessionContext.withSession("session-1", service::refreshLatestSnapshot);
+
+		assertThat(snapshot.results()).hasSize(1);
+		assertThat(snapshot.results().getFirst().symbol()).isEqualTo("ABN.AS");
+		assertThat(snapshot.results().getFirst().currencyCode()).isEqualTo("EUR");
+	}
 }

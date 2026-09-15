@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -44,6 +45,70 @@ public class EuronextPriceTool {
 
 	@Tool(description = "Get the latest Euronext quote, timestamp, and market summary from a Euronext product URL, product data like NL0011540547-XAMS, or symbol like ABN.AS")
 	public String getEuronextQuote(String instrument) {
+		EuronextSnapshot snapshot = fetchSnapshot(instrument);
+		return "instrument=%s, exchange=%s, symbol=%s, productData=%s, price=%s, currency=%s, quoteTimestamp=%s, open=%s, previousClose=%s, tradedQty=%s, trades=%s, vwap=%s, status=%s, summary=%s"
+			.formatted(
+				firstNonBlank(snapshot.instrumentName(), "n/a"),
+				firstNonBlank(snapshot.exchangeLabel(), "n/a"),
+				firstNonBlank(snapshot.symbol(), "n/a"),
+				firstNonBlank(snapshot.productData(), "n/a"),
+				snapshot.price(),
+				firstNonBlank(snapshot.currency(), "n/a"),
+				firstNonBlank(snapshot.quoteTimestamp(), "n/a"),
+				firstNonBlank(snapshot.openPrice(), "n/a"),
+				firstNonBlank(snapshot.previousClose(), "n/a"),
+				firstNonBlank(snapshot.tradedQuantity(), "n/a"),
+				firstNonBlank(snapshot.tradeCount(), "n/a"),
+				firstNonBlank(snapshot.vwap(), "n/a"),
+				firstNonBlank(snapshot.status(), "n/a"),
+				snapshot.summary()
+			);
+	}
+
+	public boolean isConfigured() {
+		return this.properties != null && this.properties.authKey() != null && !this.properties.authKey().isBlank();
+	}
+
+	public boolean supportsInstrument(String instrument) {
+		if (!isConfigured() || instrument == null || instrument.isBlank()) {
+			return false;
+		}
+		try {
+			resolveRequest(instrument);
+			return true;
+		} catch (IllegalArgumentException ex) {
+			return false;
+		}
+	}
+
+	public String canonicalizeSymbol(String instrument) {
+		if (instrument == null || instrument.isBlank()) {
+			throw new IllegalArgumentException("instrument must not be blank");
+		}
+		EuronextRequest request = resolveRequest(instrument);
+		if (!"MNE".equals(request.codification())) {
+			return request.code() + "-" + request.mic();
+		}
+		String suffix = micToSuffix(request.mic());
+		return suffix == null ? request.code() : request.code() + "." + suffix;
+	}
+
+	public StockQuote fetchQuote(String instrument) {
+		EuronextSnapshot snapshot = fetchSnapshot(instrument);
+		BigDecimal price = toBigDecimal(snapshot.price());
+		BigDecimal previousClose = toBigDecimal(snapshot.previousClose());
+		BigDecimal change = null;
+		BigDecimal changePercent = null;
+		if (price != null && previousClose != null) {
+			change = price.subtract(previousClose);
+			if (previousClose.compareTo(BigDecimal.ZERO) > 0) {
+				changePercent = change.multiply(BigDecimal.valueOf(100)).divide(previousClose, 10, java.math.RoundingMode.HALF_UP);
+			}
+		}
+		return new StockQuote(snapshot.symbol(), price, change, changePercent, snapshot.currency());
+	}
+
+	private EuronextSnapshot fetchSnapshot(String instrument) {
 		if (instrument == null || instrument.isBlank()) {
 			throw new IllegalArgumentException("instrument must not be blank");
 		}
@@ -82,10 +147,14 @@ public class EuronextPriceTool {
 
 		String mic = firstNonBlank(toText(instrumentMap.get("mic")), request.mic());
 		String isin = toText(instrumentMap.get("cdStand"));
-		String symbol = firstNonBlank(findTranscoCode(instrumentMap.get("transco"), "MNE"), request.codification().equals("MNE") ? request.code() : null);
 		String productData = firstNonBlank(
 			isin != null && mic != null ? isin + "-" + mic : null,
 			request.code() + "-" + request.mic()
+		);
+		String symbol = firstNonBlank(
+			normalizeSymbol(findTranscoCode(instrumentMap.get("transco"), "MNE"), mic),
+			request.codification().equals("MNE") ? normalizeSymbol(request.code(), request.mic()) : null,
+			productData
 		);
 
 		String summary = buildSummary(
@@ -98,24 +167,22 @@ public class EuronextPriceTool {
 			toText(currentSession.get("vwap")),
 			toText(currentSession.get("instrTradingStatus"))
 		);
-
-		return "instrument=%s, exchange=%s, symbol=%s, productData=%s, price=%s, currency=%s, quoteTimestamp=%s, open=%s, previousClose=%s, tradedQty=%s, trades=%s, vwap=%s, status=%s, summary=%s"
-			.formatted(
-				firstNonBlank(toText(instrumentMap.get("longNm")), toText(instrumentMap.get("shrtNm")), "n/a"),
-				firstNonBlank(findExchangeLabel(response.get("exchange"), mic), mic, "n/a"),
-				firstNonBlank(symbol, "n/a"),
-				firstNonBlank(productData, "n/a"),
-				price,
-				firstNonBlank(toText(instrumentMap.get("currency")), "n/a"),
-				firstNonBlank(formatDateTime(currentSession.get("lastUpdate")), "n/a"),
-				firstNonBlank(toText(currentSession.get("openPx")), "n/a"),
-				firstNonBlank(toText(currentSession.get("prevAdjClosingPrice")), "n/a"),
-				firstNonBlank(toText(currentSession.get("tradedQty")), "n/a"),
-				firstNonBlank(toText(currentSession.get("nbTrades")), "n/a"),
-				firstNonBlank(toText(currentSession.get("vwap")), "n/a"),
-				firstNonBlank(toText(currentSession.get("instrTradingStatus")), "n/a"),
-				summary
-			);
+		return new EuronextSnapshot(
+			firstNonBlank(toText(instrumentMap.get("longNm")), toText(instrumentMap.get("shrtNm"))),
+			firstNonBlank(findExchangeLabel(response.get("exchange"), mic), mic),
+			firstNonBlank(symbol, canonicalizeSymbol(instrument)),
+			productData,
+			price,
+			toText(instrumentMap.get("currency")),
+			formatDateTime(currentSession.get("lastUpdate")),
+			toText(currentSession.get("openPx")),
+			toText(currentSession.get("prevAdjClosingPrice")),
+			toText(currentSession.get("tradedQty")),
+			toText(currentSession.get("nbTrades")),
+			toText(currentSession.get("vwap")),
+			toText(currentSession.get("instrTradingStatus")),
+			summary
+		);
 	}
 
 	private static EuronextRequest resolveRequest(String input) {
@@ -185,6 +252,23 @@ public class EuronextPriceTool {
 		return ISIN_PATTERN.matcher(code).matches();
 	}
 
+	private static String normalizeSymbol(String symbol, String mic) {
+		if (symbol == null || symbol.isBlank()) {
+			return null;
+		}
+		String suffix = micToSuffix(mic);
+		String normalized = symbol.trim().toUpperCase(Locale.ROOT);
+		return suffix == null ? normalized : normalized + "." + suffix;
+	}
+
+	private static String micToSuffix(String mic) {
+		return EXCHANGE_SUFFIX_TO_MIC.entrySet().stream()
+			.filter(entry -> Objects.equals(entry.getValue(), mic))
+			.map(Map.Entry::getKey)
+			.findFirst()
+			.orElse(null);
+	}
+
 	private static String findTranscoCode(Object value, String codification) {
 		for (Map<String, Object> entry : listOfMaps(value)) {
 			if (codification.equalsIgnoreCase(firstNonBlank(toText(entry.get("codification")), ""))) {
@@ -238,6 +322,13 @@ public class EuronextPriceTool {
 		return text.isBlank() ? null : text;
 	}
 
+	private static BigDecimal toBigDecimal(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		return new BigDecimal(value);
+	}
+
 	private static List<Map<String, Object>> listOfMaps(Object value) {
 		if (!(value instanceof List<?> list)) {
 			return List.of();
@@ -259,5 +350,23 @@ public class EuronextPriceTool {
 	}
 
 	private record EuronextRequest(String code, String codification, String mic) {
+	}
+
+	private record EuronextSnapshot(
+		String instrumentName,
+		String exchangeLabel,
+		String symbol,
+		String productData,
+		String price,
+		String currency,
+		String quoteTimestamp,
+		String openPrice,
+		String previousClose,
+		String tradedQuantity,
+		String tradeCount,
+		String vwap,
+		String status,
+		String summary
+	) {
 	}
 }

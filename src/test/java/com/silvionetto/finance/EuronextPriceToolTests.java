@@ -50,7 +50,7 @@ class EuronextPriceToolTests {
 		EuronextPriceTool tool = new EuronextPriceTool(builder, new EuronextProperties("auth-key", "https://gateway.euronext.com"));
 
 		assertThat(tool.getEuronextQuote("https://live.euronext.com/en/product/equities/NL0011540547-XAMS"))
-			.isEqualTo("instrument=ABN AMRO BANK N.V., exchange=Euronext Amsterdam, symbol=ABN, productData=NL0011540547-XAMS, price=43.08, currency=EUR, quoteTimestamp=2026-09-14T17:55:01, open=43.28, previousClose=43.52, tradedQty=1448724.0, trades=4229, vwap=43.0616, status=CLO, summary=last price 43.08 EUR; opened at 43.28; previous close 43.52; volume 1448724.0 across 4229 trades; VWAP 43.0616; status CLO");
+			.isEqualTo("instrument=ABN AMRO BANK N.V., exchange=Euronext Amsterdam, symbol=ABN.AS, productData=NL0011540547-XAMS, price=43.08, currency=EUR, quoteTimestamp=2026-09-14T17:55:01, open=43.28, previousClose=43.52, tradedQty=1448724.0, trades=4229, vwap=43.0616, status=CLO, summary=last price 43.08 EUR; opened at 43.28; previous close 43.52; volume 1448724.0 across 4229 trades; VWAP 43.0616; status CLO");
 		server.verify();
 	}
 
@@ -90,9 +90,46 @@ class EuronextPriceToolTests {
 		EuronextPriceTool tool = new EuronextPriceTool(builder, new EuronextProperties("auth-key", "https://gateway.euronext.com"));
 
 		assertThat(tool.getEuronextQuote("ABN.AS"))
-			.contains("symbol=ABN")
+			.contains("symbol=ABN.AS")
 			.contains("productData=NL0011540547-XAMS")
 			.contains("quoteTimestamp=2026-09-14T17:55:01");
+		server.verify();
+	}
+
+	@Test
+	void fetchQuotePreservesSuffixedSymbolAndCurrency() {
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo("https://gateway.euronext.com/api/instrumentDetail?code=ABN&codification=MNE&exchCode=XAMS&sessionQuality=RT&view=FULL&authKey=auth-key"))
+			.andExpect(method(HttpMethod.GET))
+			.andRespond(withSuccess("""
+				{
+				  "instr": {
+				    "currency": "EUR",
+				    "mic": "XAMS",
+				    "currInstrSess": {
+				      "lastPx": "43.08",
+				      "prevAdjClosingPrice": "43.52"
+				    },
+				    "transco": [
+				      {"code": "ABN", "codification": "MNE", "exchCode": "XAMS"}
+				    ]
+				  },
+				  "exchange": [
+				    {"exchCd": "XAMS", "exchlbl": "Euronext Amsterdam"}
+				  ]
+				}
+				""", MediaType.APPLICATION_JSON));
+
+		EuronextPriceTool tool = new EuronextPriceTool(builder, new EuronextProperties("auth-key", "https://gateway.euronext.com"));
+
+		StockQuote quote = tool.fetchQuote("ABN.AS");
+
+		assertThat(quote.symbol()).isEqualTo("ABN.AS");
+		assertThat(quote.price()).isEqualByComparingTo("43.08");
+		assertThat(quote.change()).isEqualByComparingTo("-0.44");
+		assertThat(quote.changePercent()).isEqualByComparingTo("-1.0110294118");
+		assertThat(quote.currencyCode()).isEqualTo("EUR");
 		server.verify();
 	}
 

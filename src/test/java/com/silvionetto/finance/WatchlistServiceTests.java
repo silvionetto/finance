@@ -63,4 +63,19 @@ class WatchlistServiceTests {
 		assertThat(entry.symbol()).isEqualTo("BHIA3");
 		verify(tickerLookupTool).canonicalizeSymbol("VVAR3");
 	}
+
+	@Test
+	void addToWatchlistPreservesEuronextTickerSuffix() {
+		WatchlistRepository repository = mock(WatchlistRepository.class);
+		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
+		WatchlistService service = new WatchlistService(repository, tickerLookupTool);
+		when(tickerLookupTool.canonicalizeSymbol("abn.as")).thenReturn("ABN.AS");
+		when(repository.save(org.mockito.ArgumentMatchers.eq("default"), org.mockito.ArgumentMatchers.eq("ABN.AS"), org.mockito.ArgumentMatchers.eq("abn.as"), org.mockito.ArgumentMatchers.any()))
+			.thenReturn(new WatchlistEntry("default", "ABN.AS", "abn.as", Instant.EPOCH, Instant.EPOCH));
+
+		WatchlistEntry entry = service.addToWatchlist("abn.as");
+
+		assertThat(entry.symbol()).isEqualTo("ABN.AS");
+		verify(tickerLookupTool).canonicalizeSymbol("abn.as");
+	}
 }

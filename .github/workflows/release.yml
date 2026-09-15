@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine release version
+        id: version
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash .github/scripts/determine-release-version.sh
+
+      - name: Set up Java
+        if: steps.version.outputs.should_release == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        if: steps.version.outputs.should_release == 'true'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build boot JAR
+        if: steps.version.outputs.should_release == 'true'
+        run: ./gradlew bootJar --no-daemon -PreleaseVersion=${{ steps.version.outputs.version }}
+
+      - name: Create GitHub release
+        if: steps.version.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: build/libs/finance-${{ steps.version.outputs.version }}.jar
+
+      - name: Report skipped release
+        if: steps.version.outputs.should_release != 'true'
+        run: echo "${{ steps.version.outputs.reason }}" >> "$GITHUB_STEP_SUMMARY"

@@ -178,6 +178,27 @@ gradlew.bat build
 gradlew.bat test
 ```
 
+## Automated releases
+
+The repository now includes a GitHub Actions workflow at `.github/workflows/release.yml` that runs on every push to `main`.
+
+- `feat:` commits produce a **minor** version bump
+- `fix:` commits produce a **patch** version bump
+- commits marked with `!` or a `BREAKING CHANGE:` footer produce a **major** version bump
+- pushes that contain none of the above commit types do **not** create a release
+
+The workflow uses the latest `v*` git tag as the current release version, computes the next semantic version, builds the Spring Boot executable JAR, and publishes it as a GitHub Release artifact.
+
+For the first automated release, if no `v*` tags exist yet, the workflow bootstraps from the numeric part of the Gradle project version in `build.gradle`.
+
+Example commit messages:
+
+```text
+feat: add release workflow
+fix: correct watchlist normalization
+feat!: remove legacy chat endpoint
+```
+
 ## API
 
 ### `POST /api/chat`

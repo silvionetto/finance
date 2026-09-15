@@ -55,6 +55,8 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("id=\"sidebar-card\""));
 		assertThat(template, containsString("id=\"toggle-sidebar\""));
 		assertThat(template, containsString("id=\"chat-layout\""));
+		assertThat(template, containsString("id=\"open-wallet\""));
+		assertThat(template, containsString("href=\"/wallet\""));
 		assertThat(template, containsString(".layout[data-sidebar-collapsed=\"true\"]"));
 		assertThat(template, containsString("const composerStorageKey = 'finance.composer.collapsed'"));
 		assertThat(template, containsString("function setComposerCollapsed(collapsed, options = {})"));

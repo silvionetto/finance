@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Portfolio Wallet</title>
+	<style>
+		:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+		body { margin: 0; background: #f5f7fb; color: #1f2937; }
+		main { max-width: 1180px; margin: 0 auto; padding: 1.5rem; min-height: 100dvh; box-sizing: border-box; }
+		.page-shell { display: grid; gap: 1.5rem; }
+		.card { background: #ffffff; border-radius: 18px; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08); padding: 1.5rem; }
+		.page-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+		.page-header h1 { margin: 0; }
+		.page-header p { margin: 0.5rem 0 0; color: #475569; max-width: 52rem; }
+		.page-layout { display: grid; gap: 1.5rem; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); align-items: start; }
+		.stack { display: grid; gap: 1rem; }
+		h2 { margin-top: 0; }
+		form { display: grid; gap: 0.9rem; }
+		label { display: grid; gap: 0.45rem; font-size: 0.92rem; font-weight: 600; color: #334155; }
+		input, select, button, a.button-link { font: inherit; }
+		input, select {
+			width: 100%;
+			padding: 0.9rem;
+			border-radius: 12px;
+			border: 1px solid #cbd5e1;
+			box-sizing: border-box;
+			background: #ffffff;
+			color: inherit;
+		}
+		button, a.button-link {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.45rem;
+			border: 0;
+			border-radius: 999px;
+			padding: 0.8rem 1.25rem;
+			background: #2563eb;
+			color: #ffffff;
+			cursor: pointer;
+			text-decoration: none;
+		}
+		button:disabled { opacity: 0.6; cursor: wait; }
+		.button-secondary { background: #e2e8f0; color: #0f172a; }
+		.grid-two { display: grid; gap: 0.9rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.form-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; }
+		.form-hint { margin: 0; color: #64748b; font-size: 0.9rem; }
+		.status { min-height: 1.5rem; color: #475569; }
+		.summary-grid { display: grid; gap: 0.85rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.summary-tile { padding: 1rem; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; }
+		.summary-tile strong { display: block; font-size: 1.65rem; margin-top: 0.25rem; }
+		.summary-tile span { color: #475569; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.08em; }
+		.wallet-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.9rem; }
+		.wallet-item {
+			display: flex;
+			justify-content: space-between;
+			gap: 1rem;
+			align-items: flex-start;
+			padding: 1rem 1.1rem;
+			border-radius: 16px;
+			background: #f8fafc;
+			border: 1px solid #e2e8f0;
+		}
+		.wallet-item h3 { margin: 0; font-size: 1rem; }
+		.wallet-item p { margin: 0.3rem 0 0; color: #475569; }
+		.wallet-item-meta { display: grid; gap: 0.45rem; }
+		.wallet-symbol { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #1d4ed8; }
+		.wallet-metrics { display: flex; flex-wrap: wrap; gap: 0.6rem; color: #334155; font-size: 0.92rem; }
+		.wallet-remove { background: #dc2626; }
+		.empty-state {
+			padding: 1.15rem;
+			border-radius: 16px;
+			border: 1px dashed #cbd5e1;
+			background: #f8fafc;
+			color: #64748b;
+		}
+		.section-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+		.section-header p { margin: 0.35rem 0 0; color: #475569; }
+		@media (max-width: 960px) {
+			main { padding: 1rem; }
+			.page-layout,
+			.grid-two,
+			.summary-grid { grid-template-columns: 1fr; }
+		}
+		@media (max-width: 720px) {
+			.page-header,
+			.wallet-item,
+			.section-header,
+			.form-actions { flex-direction: column; align-items: stretch; }
+			.card { padding: 1rem; }
+		}
+	</style>
+</head>
+<body>
+<main>
+	<div class="page-shell">
+		<section class="card page-header">
+			<div>
+				<h1>Portfolio wallet</h1>
+				<p>Register the companies you own with quantity and average cost, then keep a clean holdings list separate from the chat watchlist.</p>
+			</div>
+			<a href="/" class="button-link button-secondary" id="back-to-chat">Back to chat</a>
+		</section>
+		<div class="page-layout">
+			<section class="card">
+				<h2>Add or update a holding</h2>
+				<p class="form-hint">Saving the same ticker again refreshes the position details for this session.</p>
+				<form id="wallet-form">
+					<label for="companyName">
+						Company name
+						<input id="companyName" name="companyName" placeholder="Apple Inc." required>
+					</label>
+					<label for="symbol">
+						Ticker symbol
+						<input id="symbol" name="symbol" placeholder="AAPL" required>
+					</label>
+					<div class="grid-two">
+						<label for="quantity">
+							Quantity
+							<input id="quantity" name="quantity" type="number" min="0.000001" step="0.0001" placeholder="10" required>
+						</label>
+						<label for="averageCost">
+							Average cost
+							<input id="averageCost" name="averageCost" type="number" min="0" step="0.01" placeholder="189.30" required>
+						</label>
+					</div>
+					<label for="currencyCode">
+						Currency
+						<select id="currencyCode" name="currencyCode">
+							<option value="USD" selected>USD</option>
+							<option value="BRL">BRL</option>
+							<option value="EUR">EUR</option>
+							<option value="GBP">GBP</option>
+						</select>
+					</label>
+					<div class="form-actions">
+						<p class="form-hint">Use uppercase ticker symbols when possible. The app will still canonicalize supported aliases.</p>
+						<button id="save-holding" type="submit">Save holding</button>
+					</div>
+				</form>
+				<div id="wallet-status" class="status" aria-live="polite"></div>
+			</section>
+			<section class="stack">
+				<section class="card">
+					<div class="section-header">
+						<div>
+							<h2>Your holdings</h2>
+							<p>Review the saved positions for this session and remove any entry you no longer want to track.</p>
+						</div>
+						<button id="refresh-wallet" class="button-secondary" type="button">Refresh</button>
+					</div>
+					<div class="summary-grid" aria-label="Wallet summary">
+						<div class="summary-tile">
+							<span>Positions</span>
+							<strong id="wallet-position-count">0</strong>
+						</div>
+						<div class="summary-tile">
+							<span>Total cost basis</span>
+							<strong id="wallet-cost-basis">USD 0.00</strong>
+						</div>
+					</div>
+				</section>
+				<section class="card">
+					<ul id="wallet-list" class="wallet-list" aria-label="Wallet holdings"></ul>
+				</section>
+			</section>
+		</div>
+	</div>
+</main>
+<script>
+	const walletForm = document.getElementById('wallet-form');
+	const companyNameInput = document.getElementById('companyName');
+	const symbolInput = document.getElementById('symbol');
+	const quantityInput = document.getElementById('quantity');
+	const averageCostInput = document.getElementById('averageCost');
+	const currencyCodeInput = document.getElementById('currencyCode');
+	const walletStatus = document.getElementById('wallet-status');
+	const walletList = document.getElementById('wallet-list');
+	const saveHoldingButton = document.getElementById('save-holding');
+	const refreshWalletButton = document.getElementById('refresh-wallet');
+	const walletPositionCount = document.getElementById('wallet-position-count');
+	const walletCostBasis = document.getElementById('wallet-cost-basis');
+
+	function readErrorMessage(error, fallback) {
+		if (error instanceof Error && error.message) {
+			return error.message;
+		}
+		return fallback;
+	}
+
+	async function readResponseError(response, fallback) {
+		const body = await response.text();
+		if (!body) {
+			return `${fallback} (status ${response.status})`;
+		}
+
+		try {
+			const payload = JSON.parse(body);
+			if (payload.message) {
+				return payload.message;
+			}
+			if (payload.error) {
+				return payload.error;
+			}
+		} catch {
+			return `${fallback} ${body}`;
+		}
+
+		return `${fallback} (status ${response.status})`;
+	}
+
+	function formatCurrency(value, currencyCode) {
+		const number = Number(value);
+		if (Number.isNaN(number)) {
+			return 'n/a';
+		}
+		const resolvedCurrencyCode = currencyCode && String(currencyCode).trim() ? String(currencyCode).trim().toUpperCase() : 'USD';
+		const locale = resolvedCurrencyCode === 'BRL' ? 'pt-BR' : 'en-US';
+		return new Intl.NumberFormat(locale, {
+			style: 'currency',
+			currency: resolvedCurrencyCode,
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
+		}).format(number);
+	}
+
+	function formatQuantity(value) {
+		const number = Number(value);
+		if (Number.isNaN(number)) {
+			return 'n/a';
+		}
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 4
+		}).format(number);
+	}
+
+	function positionCostBasis(holding) {
+		const quantity = Number(holding.quantity);
+		const averageCost = Number(holding.averageCost);
+		if (Number.isNaN(quantity) || Number.isNaN(averageCost)) {
+			return null;
+		}
+		return quantity * averageCost;
+	}
+
+	function updateSummary(holdings) {
+		walletPositionCount.textContent = String(holdings.length);
+		if (!holdings.length) {
+			walletCostBasis.textContent = 'USD 0.00';
+			return;
+		}
+
+		const totalsByCurrency = holdings.reduce((accumulator, holding) => {
+			const costBasis = positionCostBasis(holding);
+			if (costBasis === null) {
+				return accumulator;
+			}
+			const currencyCode = holding.currencyCode ?? 'USD';
+			accumulator.set(currencyCode, (accumulator.get(currencyCode) ?? 0) + costBasis);
+			return accumulator;
+		}, new Map());
+
+		const summary = Array.from(totalsByCurrency.entries())
+			.map(([currencyCode, total]) => formatCurrency(total, currencyCode))
+			.join(' | ');
+
+		walletCostBasis.textContent = summary || 'USD 0.00';
+	}
+
+	function emptyState(message) {
+		const item = document.createElement('li');
+		item.className = 'empty-state';
+		item.textContent = message;
+		return item;
+	}
+
+	function renderLoadErrorState(message) {
+		walletList.replaceChildren();
+		walletPositionCount.textContent = '0';
+		walletCostBasis.textContent = 'USD 0.00';
+		walletList.appendChild(emptyState(message));
+	}
+
+	function renderHoldings(holdings) {
+		walletList.replaceChildren();
+		updateSummary(holdings);
+		if (!holdings.length) {
+			walletList.appendChild(emptyState('No holdings saved yet. Add your first position to start building the wallet.'));
+			return;
+		}
+
+		holdings.forEach((holding) => {
+			const item = document.createElement('li');
+			item.className = 'wallet-item';
+
+			const details = document.createElement('div');
+			details.className = 'wallet-item-meta';
+
+			const symbol = document.createElement('span');
+			symbol.className = 'wallet-symbol';
+			symbol.textContent = holding.symbol ?? 'N/A';
+
+			const title = document.createElement('h3');
+			title.textContent = holding.companyName ?? holding.symbol ?? 'Unknown company';
+
+			const metrics = document.createElement('div');
+			metrics.className = 'wallet-metrics';
+			const costBasis = positionCostBasis(holding);
+			metrics.textContent = [
+				`Quantity: ${formatQuantity(holding.quantity)}`,
+				`Avg cost: ${formatCurrency(holding.averageCost, holding.currencyCode)}`,
+				costBasis === null ? null : `Cost basis: ${formatCurrency(costBasis, holding.currencyCode)}`
+			].filter(Boolean).join(' | ');
+
+			const savedAt = document.createElement('p');
+			const timestamp = holding.updatedAt ? new Date(holding.updatedAt).toLocaleString() : null;
+			savedAt.textContent = timestamp ? `Last updated ${timestamp}` : 'Saved in this wallet';
+
+			details.append(symbol, title, metrics, savedAt);
+
+			const removeButton = document.createElement('button');
+			removeButton.type = 'button';
+			removeButton.className = 'wallet-remove';
+			removeButton.textContent = 'Remove';
+			removeButton.addEventListener('click', async () => {
+				removeButton.disabled = true;
+				walletStatus.textContent = `Removing ${holding.symbol}...`;
+				try {
+					const response = await fetch('/api/wallet', {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ symbol: holding.symbol })
+					});
+					if (!response.ok) {
+						throw new Error(await readResponseError(response, 'Unable to remove the holding.'));
+					}
+
+					await loadWallet();
+					walletStatus.textContent = `${holding.symbol} removed from your wallet.`;
+				} catch (error) {
+					walletStatus.textContent = readErrorMessage(error, 'Unable to remove the holding.');
+					removeButton.disabled = false;
+				}
+			});
+
+			item.append(details, removeButton);
+			walletList.appendChild(item);
+		});
+	}
+
+	async function loadWallet() {
+		const response = await fetch('/api/wallet');
+		if (!response.ok) {
+			throw new Error(await readResponseError(response, 'Unable to load the wallet.'));
+		}
+
+		const holdings = await response.json();
+		renderHoldings(Array.isArray(holdings) ? holdings : []);
+	}
+
+	walletForm.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const payload = {
+			companyName: companyNameInput.value.trim(),
+			symbol: symbolInput.value.trim(),
+			quantity: quantityInput.value,
+			averageCost: averageCostInput.value,
+			currencyCode: currencyCodeInput.value.trim()
+		};
+
+		if (!payload.companyName || !payload.symbol || !payload.quantity || !payload.averageCost || !payload.currencyCode) {
+			walletStatus.textContent = 'Fill in all wallet fields before saving.';
+			return;
+		}
+
+		saveHoldingButton.disabled = true;
+		walletStatus.textContent = 'Saving holding...';
+
+		try {
+			const response = await fetch('/api/wallet', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!response.ok) {
+				throw new Error(await readResponseError(response, 'Unable to save the holding.'));
+			}
+
+			const holding = await response.json();
+			await loadWallet();
+			walletForm.reset();
+			currencyCodeInput.value = 'USD';
+			walletStatus.textContent = `${holding.symbol} saved to your wallet.`;
+			companyNameInput.focus();
+		} catch (error) {
+			walletStatus.textContent = readErrorMessage(error, 'Unable to save the holding.');
+		} finally {
+			saveHoldingButton.disabled = false;
+		}
+	});
+
+	refreshWalletButton.addEventListener('click', async () => {
+		refreshWalletButton.disabled = true;
+		walletStatus.textContent = 'Refreshing wallet...';
+		try {
+			await loadWallet();
+			walletStatus.textContent = 'Wallet refreshed.';
+		} catch (error) {
+			walletStatus.textContent = readErrorMessage(error, 'Unable to refresh the wallet.');
+		} finally {
+			refreshWalletButton.disabled = false;
+		}
+	});
+
+	loadWallet().catch((error) => {
+		const message = readErrorMessage(error, 'Unable to load the wallet.');
+		walletStatus.textContent = message;
+		renderLoadErrorState('Unable to load your wallet right now. Refresh and try again.');
+	});
+</script>
+</body>
+</html>

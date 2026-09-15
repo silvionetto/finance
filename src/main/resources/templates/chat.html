@@ -15,7 +15,21 @@
 		form { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
 		textarea, input { width: 100%; padding: 0.9rem; border-radius: 12px; border: 1px solid #cbd5e1; font: inherit; box-sizing: border-box; }
 		textarea { min-height: 110px; resize: vertical; }
-		button { justify-self: start; border: 0; border-radius: 999px; padding: 0.8rem 1.25rem; background: #2563eb; color: white; font: inherit; cursor: pointer; }
+		button,
+		.button-link {
+			justify-self: start;
+			border: 0;
+			border-radius: 999px;
+			padding: 0.8rem 1.25rem;
+			background: #2563eb;
+			color: white;
+			font: inherit;
+			cursor: pointer;
+			text-decoration: none;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
 		button:disabled { opacity: 0.6; cursor: wait; }
 		#status { min-height: 1.5rem; color: #475569; }
 		.thinking-indicator {
@@ -375,6 +389,7 @@
 					<h1>Chat with the AI API</h1>
 				</div>
 				<div class="chat-header-actions">
+					<a href="/wallet" id="open-wallet" class="button-link chat-secondary-action">Open wallet</a>
 					<button id="clear-chat" class="chat-secondary-action" type="button">New chat</button>
 				</div>
 			</div>

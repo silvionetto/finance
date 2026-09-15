@@ -42,7 +42,7 @@ jobs:
 
       - name: Build boot JAR
         if: steps.version.outputs.should_release == 'true'
-        run: ./gradlew bootJar --no-daemon -PreleaseVersion=${{ steps.version.outputs.version }}
+        run: bash ./gradlew bootJar --no-daemon -PreleaseVersion=${{ steps.version.outputs.version }}
 
       - name: Create GitHub release
         if: steps.version.outputs.should_release == 'true'

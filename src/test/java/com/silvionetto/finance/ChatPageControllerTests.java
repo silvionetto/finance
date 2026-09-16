@@ -37,11 +37,15 @@ class ChatPageControllerTests {
 		);
 
 		assertThat(template, containsString("xmlns:th=\"http://www.thymeleaf.org\""));
+		assertThat(template, containsString("form method=\"post\" action=\"/login\""));
 		assertThat(template, containsString("th:name=\"${_csrf.parameterName}\""));
 		assertThat(template, containsString("th:value=\"${_csrf.token}\""));
+		assertThat(template, containsString("th:if=\"${param.error}\""));
+		assertThat(template, containsString("th:if=\"${param.logout}\""));
+		assertThat(template, containsString("id=\"rememberMeVisual\""));
+		assertThat(template, containsString("Visual preference only."));
 	}
 
-	@Test
 	void chatTemplateIncludesMarkdownRenderingHooks() throws Exception {
 		String template = StreamUtils.copyToString(
 			new ClassPathResource("templates/chat.html").getInputStream(),

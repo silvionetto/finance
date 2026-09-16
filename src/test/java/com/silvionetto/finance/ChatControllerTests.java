@@ -19,9 +19,11 @@ class ChatControllerTests {
 	@Test
 	void chatReturnsResponse() throws Exception {
 		ChatService chatService = mock(ChatService.class);
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
 		when(chatService.chat(anyString())).thenReturn("hello");
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
 
-		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext())).build();
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext(), authenticatedUserContext)).build();
 
 		mockMvc.perform(post("/api/chat")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -33,8 +35,10 @@ class ChatControllerTests {
 	@Test
 	void resetMemoryClearsConversation() throws Exception {
 		ChatService chatService = mock(ChatService.class);
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
 
-		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext())).build();
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext(), authenticatedUserContext)).build();
 
 		mockMvc.perform(delete("/api/chat/memory"))
 			.andExpect(status().isOk());

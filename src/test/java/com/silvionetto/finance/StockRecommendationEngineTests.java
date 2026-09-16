@@ -11,7 +11,7 @@ class StockRecommendationEngineTests {
 	@Test
 	void recommendsSellWhenPriceIsUpStrongly() {
 		StockRecommendationEngine engine = new StockRecommendationEngine();
-		WatchlistEntry entry = new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
+		WatchlistEntry entry = new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
 		StockCheckItemResult result = engine.recommend(entry, new StockQuote("AAPL", new BigDecimal("200"), new BigDecimal("10"), new BigDecimal("6")));
 
 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.SELL);
@@ -22,7 +22,7 @@ class StockRecommendationEngineTests {
 	@Test
 	void recommendsBuyWhenPriceIsDownStrongly() {
 		StockRecommendationEngine engine = new StockRecommendationEngine();
-		WatchlistEntry entry = new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
+		WatchlistEntry entry = new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
 		StockCheckItemResult result = engine.recommend(entry, new StockQuote("AAPL", new BigDecimal("200"), new BigDecimal("-10"), new BigDecimal("-6")));
 
 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.BUY);
@@ -33,7 +33,7 @@ class StockRecommendationEngineTests {
 	@Test
 	void recommendsHoldWhenMovementIsSmall() {
 		StockRecommendationEngine engine = new StockRecommendationEngine();
-		WatchlistEntry entry = new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
+		WatchlistEntry entry = new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
 		StockCheckItemResult result = engine.recommend(entry, new StockQuote("AAPL", new BigDecimal("200"), new BigDecimal("1"), new BigDecimal("1")));
 
 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.HOLD);
@@ -44,7 +44,7 @@ class StockRecommendationEngineTests {
 	@Test
 	void computesChangePercentWhenApiDoesNotProvideOne() {
 		StockRecommendationEngine engine = new StockRecommendationEngine();
-		WatchlistEntry entry = new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
+		WatchlistEntry entry = new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
 		StockCheckItemResult result = engine.recommend(entry, new StockQuote("AAPL", new BigDecimal("327.45"), new BigDecimal("2.49"), null));
 
 		assertThat(result.changePercent()).isEqualByComparingTo("0.7662481536");
@@ -56,7 +56,7 @@ class StockRecommendationEngineTests {
 	@Test
 	void formatsProvidedChangePercentToTwoDecimalsInExplanation() {
 		StockRecommendationEngine engine = new StockRecommendationEngine();
-		WatchlistEntry entry = new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
+		WatchlistEntry entry = new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH);
 		StockCheckItemResult result = engine.recommend(
 			entry,
 			new StockQuote("AAPL", new BigDecimal("319.97"), new BigDecimal("-8.24"), new BigDecimal("-2.5105877335"))

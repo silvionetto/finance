@@ -19,56 +19,55 @@ class WalletServiceTests {
 	void listHoldingsUsesCurrentSessionId() {
 		WalletRepository repository = mock(WalletRepository.class);
 		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
-		RequestSessionContext requestSessionContext = new RequestSessionContext();
-		WalletService service = new WalletService(repository, tickerLookupTool, requestSessionContext);
-		when(repository.findAllByOwnerId("session-1")).thenReturn(List.of(
-			new WalletHolding("session-1", "AAPL", "Apple Inc.", new BigDecimal("4"), new BigDecimal("189.30"), "USD", Instant.EPOCH, Instant.EPOCH)
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
+		WalletService service = new WalletService(repository, tickerLookupTool, authenticatedUserContext);
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
+		when(repository.findAllByOwnerId("user")).thenReturn(List.of(
+			new WalletHolding("user", "AAPL", "Apple Inc.", new BigDecimal("4"), new BigDecimal("189.30"), "USD", Instant.EPOCH, Instant.EPOCH)
 		));
 
-		List<WalletHolding> holdings = requestSessionContext.withSession("session-1", service::listHoldings);
+		List<WalletHolding> holdings = service.listHoldings();
 
 		assertThat(holdings).hasSize(1);
-		verify(repository).findAllByOwnerId("session-1");
+		verify(repository).findAllByOwnerId("user");
 	}
 
 	@Test
 	void saveHoldingNormalizesInputs() {
 		WalletRepository repository = mock(WalletRepository.class);
 		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
-		RequestSessionContext requestSessionContext = new RequestSessionContext();
-		WalletService service = new WalletService(repository, tickerLookupTool, requestSessionContext);
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
+		WalletService service = new WalletService(repository, tickerLookupTool, authenticatedUserContext);
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
 		when(tickerLookupTool.canonicalizeSymbol(" aapl ")).thenReturn("AAPL");
 		when(repository.save(
-			eq("session-1"),
+			eq("user"),
 			eq("AAPL"),
 			eq("Apple Inc."),
-			eq(new BigDecimal("4.25")),
+			eq(new BigDecimal("4")),
 			eq(new BigDecimal("189.30")),
 			eq("USD"),
 			any()
 		)).thenReturn(new WalletHolding(
-			"session-1",
+			"user",
 			"AAPL",
 			"Apple Inc.",
-			new BigDecimal("4.25"),
+			new BigDecimal("4"),
 			new BigDecimal("189.30"),
 			"USD",
 			Instant.EPOCH,
 			Instant.EPOCH
 		));
 
-		WalletHolding holding = requestSessionContext.withSession(
-			"session-1",
-			() -> service.saveHolding(" Apple Inc. ", " aapl ", new BigDecimal("4.25"), new BigDecimal("189.30"), "usd")
-		);
+		WalletHolding holding = service.saveHolding(" Apple Inc. ", " aapl ", new BigDecimal("4.0"), new BigDecimal("189.30"), "usd");
 
 		assertThat(holding.symbol()).isEqualTo("AAPL");
 		assertThat(holding.currencyCode()).isEqualTo("USD");
 		verify(repository).save(
-			eq("session-1"),
+			eq("user"),
 			eq("AAPL"),
 			eq("Apple Inc."),
-			eq(new BigDecimal("4.25")),
+			eq(new BigDecimal("4")),
 			eq(new BigDecimal("189.30")),
 			eq("USD"),
 			any()
@@ -76,31 +75,44 @@ class WalletServiceTests {
 	}
 
 	@Test
+	void saveHoldingRejectsFractionalQuantity() {
+		WalletRepository repository = mock(WalletRepository.class);
+		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
+		WalletService service = new WalletService(repository, tickerLookupTool, authenticatedUserContext);
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
+		when(tickerLookupTool.canonicalizeSymbol("AAPL")).thenReturn("AAPL");
+
+		assertThatThrownBy(() -> service.saveHolding("Apple Inc.", "AAPL", new BigDecimal("4.25"), new BigDecimal("189.30"), "USD"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("quantity must be a whole number");
+	}
+
+	@Test
 	void removeHoldingUsesCurrentSessionId() {
 		WalletRepository repository = mock(WalletRepository.class);
 		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
-		RequestSessionContext requestSessionContext = new RequestSessionContext();
-		WalletService service = new WalletService(repository, tickerLookupTool, requestSessionContext);
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
+		WalletService service = new WalletService(repository, tickerLookupTool, authenticatedUserContext);
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
 		when(tickerLookupTool.canonicalizeSymbol("AAPL")).thenReturn("AAPL");
-		when(repository.deleteByOwnerIdAndSymbol("session-2", "AAPL")).thenReturn(true);
+		when(repository.deleteByOwnerIdAndSymbol("user", "AAPL")).thenReturn(true);
 
-		boolean removed = requestSessionContext.withSession("session-2", () -> service.removeHolding("AAPL"));
+		boolean removed = service.removeHolding("AAPL");
 
 		assertThat(removed).isTrue();
-		verify(repository).deleteByOwnerIdAndSymbol("session-2", "AAPL");
+		verify(repository).deleteByOwnerIdAndSymbol("user", "AAPL");
 	}
 
 	@Test
 	void saveHoldingRejectsBlankCompanyName() {
 		WalletRepository repository = mock(WalletRepository.class);
 		TickerLookupTool tickerLookupTool = mock(TickerLookupTool.class);
-		RequestSessionContext requestSessionContext = new RequestSessionContext();
-		WalletService service = new WalletService(repository, tickerLookupTool, requestSessionContext);
+		AuthenticatedUserContext authenticatedUserContext = mock(AuthenticatedUserContext.class);
+		WalletService service = new WalletService(repository, tickerLookupTool, authenticatedUserContext);
+		when(authenticatedUserContext.requireCurrentUsername()).thenReturn("user");
 
-		assertThatThrownBy(() -> requestSessionContext.withSession(
-			"session-1",
-			() -> service.saveHolding(" ", "AAPL", BigDecimal.ONE, new BigDecimal("189.30"), "USD")
-		))
+		assertThatThrownBy(() -> service.saveHolding(" ", "AAPL", BigDecimal.ONE, new BigDecimal("189.30"), "USD"))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("companyName must not be blank");
 	}

@@ -8,14 +8,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class WatchlistService {
 
-	private static final String DEFAULT_OWNER_ID = "default";
-
 	private final WatchlistRepository watchlistRepository;
 	private final TickerLookupTool tickerLookupTool;
+	private final AuthenticatedUserContext authenticatedUserContext;
 
-	public WatchlistService(WatchlistRepository watchlistRepository, TickerLookupTool tickerLookupTool) {
+	public WatchlistService(
+		WatchlistRepository watchlistRepository,
+		TickerLookupTool tickerLookupTool,
+		AuthenticatedUserContext authenticatedUserContext
+	) {
 		this.watchlistRepository = watchlistRepository;
 		this.tickerLookupTool = tickerLookupTool;
+		this.authenticatedUserContext = authenticatedUserContext;
 	}
 
 	public List<WatchlistEntry> listWatchlist() {
@@ -35,7 +39,7 @@ public class WatchlistService {
 	}
 
 	private String currentOwnerId() {
-		return DEFAULT_OWNER_ID;
+		return this.authenticatedUserContext.requireCurrentUsername();
 	}
 
 	private String resolveSymbol(String symbolOrCompanyName) {

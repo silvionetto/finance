@@ -13,7 +13,7 @@ class WatchlistToolTests {
 	@Test
 	void listWatchlistFormatsEntries() {
 		WatchlistService watchlistService = mock(WatchlistService.class);
-		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH)));
+		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("user", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH)));
 		WatchlistTool tool = new WatchlistTool(watchlistService);
 
 		assertThat(tool.listWatchlist()).contains("AAPL");

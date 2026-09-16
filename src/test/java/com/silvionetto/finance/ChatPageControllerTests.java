@@ -46,6 +46,24 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("Visual preference only."));
 	}
 
+	@Test
+	void errorTemplateMatchesApplicationStyling() throws Exception {
+		String template = StreamUtils.copyToString(
+			new ClassPathResource("templates/error.html").getInputStream(),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(template, containsString("xmlns:th=\"http://www.thymeleaf.org\""));
+		assertThat(template, containsString("class=\"error-shell\""));
+		assertThat(template, containsString("th:text=\"${status ?: 500}\""));
+		assertThat(template, containsString("th:text=\"${error ?: 'Unexpected error'}\""));
+		assertThat(template, containsString("th:text=\"${message ?: 'No additional details were provided.'}\""));
+		assertThat(template, containsString("th:text=\"${path ?: '/'}\""));
+		assertThat(template, containsString("href=\"/login\""));
+		assertThat(template, containsString("href=\"/\""));
+	}
+
+	@Test
 	void chatTemplateIncludesMarkdownRenderingHooks() throws Exception {
 		String template = StreamUtils.copyToString(
 			new ClassPathResource("templates/chat.html").getInputStream(),

@@ -25,6 +25,23 @@ class ChatPageControllerTests {
 	}
 
 	@Test
+	void loginPageIsServed() throws Exception {
+		assertTrue(new ChatPageController().loginPage().equals("login"));
+	}
+
+	@Test
+	void loginTemplateIncludesCsrfField() throws Exception {
+		String template = StreamUtils.copyToString(
+			new ClassPathResource("templates/login.html").getInputStream(),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(template, containsString("xmlns:th=\"http://www.thymeleaf.org\""));
+		assertThat(template, containsString("th:name=\"${_csrf.parameterName}\""));
+		assertThat(template, containsString("th:value=\"${_csrf.token}\""));
+	}
+
+	@Test
 	void chatTemplateIncludesMarkdownRenderingHooks() throws Exception {
 		String template = StreamUtils.copyToString(
 			new ClassPathResource("templates/chat.html").getInputStream(),
@@ -64,6 +81,9 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("const sidebarStorageKey = 'finance.sidebar.collapsed'"));
 		assertThat(template, containsString("function setSidebarCollapsed(collapsed, options = {})"));
 		assertThat(template, containsString("layout.dataset.sidebarCollapsed = String(collapsed);"));
+		assertThat(template, containsString("meta name=\"_csrf\""));
+		assertThat(template, containsString("function jsonHeaders()"));
+		assertThat(template, containsString("href=\"/account/password\""));
 		assertTrue(template.indexOf("id=\"composer-main\"") < template.indexOf("id=\"thinking-indicator\""));
 		assertTrue(template.indexOf("id=\"thinking-indicator\"") < template.indexOf("id=\"chat-form\""));
 	}

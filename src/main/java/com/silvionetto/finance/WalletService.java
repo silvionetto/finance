@@ -11,16 +11,16 @@ public class WalletService {
 
 	private final WalletRepository walletRepository;
 	private final TickerLookupTool tickerLookupTool;
-	private final RequestSessionContext requestSessionContext;
+	private final AuthenticatedUserContext authenticatedUserContext;
 
 	public WalletService(
 		WalletRepository walletRepository,
 		TickerLookupTool tickerLookupTool,
-		RequestSessionContext requestSessionContext
+		AuthenticatedUserContext authenticatedUserContext
 	) {
 		this.walletRepository = walletRepository;
 		this.tickerLookupTool = tickerLookupTool;
-		this.requestSessionContext = requestSessionContext;
+		this.authenticatedUserContext = authenticatedUserContext;
 	}
 
 	public List<WalletHolding> listHoldings() {
@@ -36,7 +36,7 @@ public class WalletService {
 	) {
 		String normalizedCompanyName = normalizeCompanyName(companyName);
 		String normalizedSymbol = normalizeSymbol(symbol);
-		BigDecimal normalizedQuantity = requirePositive(quantity, "quantity");
+		BigDecimal normalizedQuantity = requirePositiveWholeNumber(quantity, "quantity");
 		BigDecimal normalizedAverageCost = requireNonNegative(averageCost, "averageCost");
 		String normalizedCurrencyCode = normalizeCurrencyCode(currencyCode);
 
@@ -56,7 +56,7 @@ public class WalletService {
 	}
 
 	private String currentOwnerId() {
-		return this.requestSessionContext.requireCurrentSessionId();
+		return this.authenticatedUserContext.requireCurrentUsername();
 	}
 
 	private String normalizeCompanyName(String companyName) {
@@ -73,14 +73,18 @@ public class WalletService {
 		return this.tickerLookupTool.canonicalizeSymbol(symbol).trim().toUpperCase(Locale.ROOT);
 	}
 
-	private static BigDecimal requirePositive(BigDecimal value, String fieldName) {
+	private static BigDecimal requirePositiveWholeNumber(BigDecimal value, String fieldName) {
 		if (value == null) {
 			throw new IllegalArgumentException(fieldName + " must not be null");
 		}
-		if (value.signum() <= 0) {
+		BigDecimal normalized = value.stripTrailingZeros();
+		if (normalized.signum() <= 0) {
 			throw new IllegalArgumentException(fieldName + " must be greater than zero");
 		}
-		return value;
+		if (normalized.scale() > 0) {
+			throw new IllegalArgumentException(fieldName + " must be a whole number");
+		}
+		return normalized;
 	}
 
 	private static BigDecimal requireNonNegative(BigDecimal value, String fieldName) {

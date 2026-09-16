@@ -93,6 +93,8 @@
 	</style>
 </head>
 <body>
+	<meta name="_csrf" th:content="${_csrf.token}">
+	<meta name="_csrf_header" th:content="${_csrf.headerName}">
 <main>
 	<div class="page-shell">
 		<section class="card page-header">
@@ -100,7 +102,10 @@
 				<h1>Portfolio wallet</h1>
 				<p>Register the companies you own with quantity and average cost, then keep a clean holdings list separate from the chat watchlist.</p>
 			</div>
-			<a href="/" class="button-link button-secondary" id="back-to-chat">Back to chat</a>
+			<div class="actions">
+				<a href="/" class="button-link button-secondary" id="back-to-chat">Back to chat</a>
+				<a href="/account/password" class="button-link button-secondary" id="open-password-page">Change password</a>
+			</div>
 		</section>
 		<div class="page-layout">
 			<section class="card">
@@ -118,7 +123,7 @@
 					<div class="grid-two">
 						<label for="quantity">
 							Quantity
-							<input id="quantity" name="quantity" type="number" min="0.000001" step="0.0001" placeholder="10" required>
+							<input id="quantity" name="quantity" type="number" min="1" step="1" inputmode="numeric" placeholder="10" required>
 						</label>
 						<label for="averageCost">
 							Average cost
@@ -181,6 +186,16 @@
 	const refreshWalletButton = document.getElementById('refresh-wallet');
 	const walletPositionCount = document.getElementById('wallet-position-count');
 	const walletCostBasis = document.getElementById('wallet-cost-basis');
+	const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+	const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+	function jsonHeaders() {
+		const headers = { 'Content-Type': 'application/json' };
+		if (csrfToken && csrfHeader) {
+			headers[csrfHeader] = csrfToken;
+		}
+		return headers;
+	}
 
 	function readErrorMessage(error, fallback) {
 		if (error instanceof Error && error.message) {
@@ -232,7 +247,7 @@
 		}
 		return new Intl.NumberFormat('en-US', {
 			minimumFractionDigits: 0,
-			maximumFractionDigits: 4
+			maximumFractionDigits: 0
 		}).format(number);
 	}
 
@@ -330,7 +345,7 @@
 				try {
 					const response = await fetch('/api/wallet', {
 						method: 'DELETE',
-						headers: { 'Content-Type': 'application/json' },
+						headers: jsonHeaders(),
 						body: JSON.stringify({ symbol: holding.symbol })
 					});
 					if (!response.ok) {
@@ -374,6 +389,12 @@
 			walletStatus.textContent = 'Fill in all wallet fields before saving.';
 			return;
 		}
+		const quantity = Number(payload.quantity);
+		if (!Number.isInteger(quantity) || quantity <= 0) {
+			walletStatus.textContent = 'Quantity must be a whole number greater than zero.';
+			quantityInput.focus();
+			return;
+		}
 
 		saveHoldingButton.disabled = true;
 		walletStatus.textContent = 'Saving holding...';
@@ -381,7 +402,7 @@
 		try {
 			const response = await fetch('/api/wallet', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: jsonHeaders(),
 				body: JSON.stringify(payload)
 			});
 			if (!response.ok) {

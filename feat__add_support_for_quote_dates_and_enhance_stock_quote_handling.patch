@@ -1,0 +1,1735 @@
+Subject: [PATCH] feat: add support for quote dates and enhance stock quote handling
+---
+Index: src/main/java/com/silvionetto/finance/ChatService.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/ChatService.java b/src/main/java/com/silvionetto/finance/ChatService.java
+--- a/src/main/java/com/silvionetto/finance/ChatService.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/ChatService.java	(date 1788895111647)
+@@ -2,13 +2,26 @@
+ 
+ import org.springframework.ai.chat.client.ChatClient;
+ import org.springframework.ai.chat.messages.Message;
++import org.springframework.ai.chat.messages.UserMessage;
+ import org.springframework.stereotype.Service;
+ import java.util.ArrayList;
+ import java.util.List;
++import java.util.regex.Pattern;
+ 
+ @Service
+ public class ChatService {
+ 
++	private static final Pattern HTML_FORMAT_REQUEST = Pattern.compile(
++		"\\b(?:respond|reply|return|format|output|write|generate|create|render|show)\\b[^\\r\\n.]{0,80}\\bhtml\\b"
++			+ "|\\bhtml\\b[^\\r\\n.]{0,80}\\b(?:response|reply|output|format|fragment)\\b",
++		Pattern.CASE_INSENSITIVE
++	);
++
++	private static final Pattern TEXT_FORMAT_REQUEST = Pattern.compile(
++		"\\b(?:plain\\s+text|text\\s+only|without\\s+markdown|no\\s+markdown|without\\s+html|no\\s+html)\\b",
++		Pattern.CASE_INSENSITIVE
++	);
++
+ 	private final ChatClient chatClient;
+ 	private final DateTimeTools dateTimeTools;
+ 	private final TickerLookupTool tickerLookupTool;
+@@ -38,10 +51,15 @@
+ 		this.chatClient = chatClientBuilder.build();
+ 	}
+ 
+-	public String chat(String prompt) {
++	public ChatReply chat(String prompt) {
++		ChatResponseFormat requestedFormat = detectRequestedFormat(prompt);
+ 		this.chatMemory.addUserMessage(prompt);
+ 
+ 		List<Message> messages = new ArrayList<>(this.chatMemory.getMessages());
++		String formatInstruction = supplementalFormatInstruction(requestedFormat);
++		if (formatInstruction != null) {
++			messages.add(new UserMessage(formatInstruction));
++		}
+ 
+ 		String response = this.chatClient.prompt()
+ 			.messages(messages)
+@@ -51,7 +69,28 @@
+ 
+ 		this.chatMemory.addAssistantMessage(response);
+ 
+-		return response;
++		return new ChatReply(response, requestedFormat);
++	}
++
++	static ChatResponseFormat detectRequestedFormat(String prompt) {
++		if (prompt == null || prompt.isBlank()) {
++			return ChatResponseFormat.MARKDOWN;
++		}
++		if (TEXT_FORMAT_REQUEST.matcher(prompt).find()) {
++			return ChatResponseFormat.TEXT;
++		}
++		if (HTML_FORMAT_REQUEST.matcher(prompt).find()) {
++			return ChatResponseFormat.HTML;
++		}
++		return ChatResponseFormat.MARKDOWN;
++	}
++
++	private static String supplementalFormatInstruction(ChatResponseFormat format) {
++		return switch (format) {
++			case HTML -> "Return only a polished HTML fragment for body content. Do not use Markdown fences. Do not include <html>, <head>, or <body> tags. Use semantic HTML such as sections, headings, paragraphs, lists, tables, and emphasis where appropriate.";
++			case TEXT -> "Return plain text only. Do not use Markdown or HTML.";
++			case MARKDOWN -> null;
++		};
+ 	}
+ 
+ 	/**
+Index: src/main/java/com/silvionetto/finance/ChatController.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/ChatController.java b/src/main/java/com/silvionetto/finance/ChatController.java
+--- a/src/main/java/com/silvionetto/finance/ChatController.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/ChatController.java	(date 1788895121724)
+@@ -21,7 +21,10 @@
+ 
+ 	@PostMapping
+ 	public ChatResponse chat(HttpSession session, @RequestBody ChatRequest request) {
+-		return this.requestSessionContext.withSession(session.getId(), () -> new ChatResponse(this.chatService.chat(request.prompt())));
++		return this.requestSessionContext.withSession(session.getId(), () -> {
++			ChatReply reply = this.chatService.chat(request.prompt());
++			return new ChatResponse(reply.response(), reply.format().value());
++		});
+ 	}
+ 
+ 	@DeleteMapping("/memory")
+@@ -30,5 +33,5 @@
+ 	}
+ 
+ 	public record ChatRequest(String prompt) {}
+-	public record ChatResponse(String response) {}
++	public record ChatResponse(String response, String format) {}
+ }
+Index: src/test/java/com/silvionetto/finance/TickerLookupToolTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/TickerLookupToolTests.java b/src/test/java/com/silvionetto/finance/TickerLookupToolTests.java
+--- a/src/test/java/com/silvionetto/finance/TickerLookupToolTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/TickerLookupToolTests.java	(date 1789319052876)
+@@ -30,14 +30,34 @@
+ 
+ 		PolygonTickerLookupClient polygonClient = mock(PolygonTickerLookupClient.class);
+ 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(polygonClient);
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 		ObjectProvider<AlpacaMarketDataTool> alpacaProvider = alpacaProvider(null);
+-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider, polygonProvider);
++		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider, polygonProvider);
+ 
+ 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
+ 		verify(catalog, never()).upsert(org.mockito.ArgumentMatchers.any());
+ 		verifyNoInteractions(polygonClient);
+ 	}
+ 
++	@Test
++	void returnsAmsterdamTickerFromCatalogAlias() {
++		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
++		when(catalog.load()).thenReturn(List.of(new CompanyTickerCatalog.CompanyTickerEntry("ABN AMRO Bank N.V.", "ABN.AS", "AMS")));
++
++		TickerLookupTool tool = new TickerLookupTool(
++			RestClient.builder(),
++			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
++			catalog,
++			polygonMarketDataProvider(null),
++			brapiProvider(null),
++			alpacaProvider(null),
++			polygonProvider(null)
++		);
++
++		assertThat(tool.lookupTickerSymbol("ABN AMRO Bank N.V.")).isEqualTo("ABN.AS");
++		assertThat(tool.lookupTickerSymbol("ABN AMRO")).isEqualTo("ABN.AS");
++	}
++
+ 	@SuppressWarnings("unchecked")
+     @Test
+ 	void returnsAaplFromPolygonWhenCatalogMisses() {
+@@ -47,9 +67,10 @@
+ 		PolygonTickerLookupClient polygonClient = mock(PolygonTickerLookupClient.class);
+ 		when(polygonClient.lookupTickerSymbol(eq("Apple Inc."))).thenReturn("AAPL");
+ 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(polygonClient);
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 		ObjectProvider<AlpacaMarketDataTool> alpacaProvider = alpacaProvider(null);
+ 
+-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider, polygonProvider);
++		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider, polygonProvider);
+ 
+ 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
+ 		verify(catalog).upsert(eq(new CompanyTickerCatalog.CompanyTickerEntry("Apple Inc.", "AAPL", "POLYGON")));
+@@ -61,11 +82,13 @@
+ 		when(catalog.load()).thenReturn(List.of(), List.of());
+ 		BrapiMarketDataTool brapi = mock(BrapiMarketDataTool.class);
+ 		when(brapi.findTickerSymbol("Petrobras")).thenReturn("PETR4");
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 
+ 		TickerLookupTool tool = new TickerLookupTool(
+ 			RestClient.builder(),
+ 			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
+ 			catalog,
++			polygonMarketDataProvider,
+ 			brapiProvider(brapi),
+ 			alpacaProvider(null),
+ 			polygonProvider(null)
+@@ -80,6 +103,7 @@
+ 		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+ 		when(catalog.load()).thenReturn(List.of());
+ 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 
+ 		RestClient.Builder builder = RestClient.builder();
+ 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+@@ -89,17 +113,42 @@
+ 				[{"symbol":"AAPL","exchangeShortName":"NASDAQ"}]
+ 				""", MediaType.APPLICATION_JSON));
+ 
+-		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider(null), polygonProvider);
++		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider(null), polygonProvider);
+ 
+ 		assertThat(tool.lookupTickerSymbol("Apple Inc.")).isEqualTo("AAPL");
+ 		server.verify();
+ 	}
++
++	@Test
++	void prefersAmsterdamListingWhenFmpReturnsAdrAndAmsterdamMatch() {
++		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
++		when(catalog.load()).thenReturn(List.of());
++		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
++
++		RestClient.Builder builder = RestClient.builder();
++		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
++		server.expect(requestTo("https://financialmodelingprep.com/stable/search-name?query=ASML%20Holding&limit=10&apikey=fmp-key"))
++			.andExpect(method(HttpMethod.GET))
++			.andRespond(withSuccess("""
++				[
++				  {"symbol":"ASML","name":"ASML Holding N.V.","exchangeShortName":"NASDAQ"},
++				  {"symbol":"ASML.AS","name":"ASML Holding N.V.","exchangeShortName":"AMS"}
++				]
++				""", MediaType.APPLICATION_JSON));
++
++		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider(null), polygonProvider);
++
++		assertThat(tool.lookupTickerSymbol("ASML Holding")).isEqualTo("ASML.AS");
++		server.verify();
++	}
+ 
+ 	@Test
+ 	void failsWithHelpfulMessageWhenFmpIsAmbiguous() {
+ 		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+ 		when(catalog.load()).thenReturn(List.of());
+ 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 
+ 		RestClient.Builder builder = RestClient.builder();
+ 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+@@ -112,7 +161,7 @@
+ 				]
+ 				""", MediaType.APPLICATION_JSON));
+ 
+-		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider(null), polygonProvider);
++		TickerLookupTool tool = new TickerLookupTool(builder, new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider(null), polygonProvider);
+ 
+ 		assertThatThrownBy(() -> tool.lookupTickerSymbol("Apple"))
+ 			.isInstanceOf(IllegalStateException.class)
+@@ -127,9 +176,10 @@
+ 		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+ 		when(catalog.load()).thenReturn(List.of());
+ 		ObjectProvider<PolygonTickerLookupClient> polygonProvider = polygonProvider(null);
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 		ObjectProvider<AlpacaMarketDataTool> alpacaProvider = alpacaProvider(null);
+ 
+-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider, polygonProvider);
++		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider, brapiProvider(null), alpacaProvider, polygonProvider);
+ 
+ 		assertThatThrownBy(() -> tool.lookupTickerSymbol("Apple Inc."))
+ 			.isInstanceOf(IllegalStateException.class)
+@@ -155,7 +205,7 @@
+ 				""", MediaType.APPLICATION_JSON));
+ 
+ 		AlpacaMarketDataTool alpaca = new AlpacaMarketDataTool(builder, new AlpacaProperties("key-id", "secret", "https://data.alpaca.markets", "iex"));
+-		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, brapiProvider(null), alpacaProvider(alpaca), polygonProvider(null));
++		TickerLookupTool tool = new TickerLookupTool(RestClient.builder(), new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"), catalog, polygonMarketDataProvider(null), brapiProvider(null), alpacaProvider(alpaca), polygonProvider(null));
+ 
+ 		StockQuote quote = tool.fetchQuote("AAPL");
+ 
+@@ -164,6 +214,7 @@
+ 		assertThat(quote.change()).isEqualByComparingTo("2.49");
+ 		assertThat(quote.changePercent()).isEqualByComparingTo("0.7662481536");
+ 		assertThat(quote.currencyCode()).isEqualTo("USD");
++		assertThat(quote.quoteDate()).isNull();
+ 		server.verify();
+ 	}
+ 
+@@ -176,11 +227,13 @@
+ 		when(brapi.canonicalizeSymbol("VVAR3")).thenReturn("BHIA3");
+ 		when(brapi.supportsSymbol("BHIA3")).thenReturn(true);
+ 		when(brapi.fetchQuote("BHIA3")).thenReturn(new StockQuote("BHIA3", new java.math.BigDecimal("5.12"), new java.math.BigDecimal("0.10"), new java.math.BigDecimal("1.99")));
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 
+ 		TickerLookupTool tool = new TickerLookupTool(
+ 			RestClient.builder(),
+ 			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
+ 			catalog,
++			polygonMarketDataProvider,
+ 			brapiProvider(brapi),
+ 			alpacaProvider(null),
+ 			polygonProvider(null)
+@@ -200,6 +253,7 @@
+ 		BrapiMarketDataTool brapi = mock(BrapiMarketDataTool.class);
+ 		when(brapi.isConfigured()).thenReturn(false);
+ 		when(brapi.canonicalizeSymbol("PETR4")).thenReturn("PETR4");
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
+ 
+ 		RestClient.Builder builder = RestClient.builder();
+ 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+@@ -213,6 +267,7 @@
+ 			builder,
+ 			new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"),
+ 			catalog,
++			polygonMarketDataProvider,
+ 			brapiProvider(brapi),
+ 			alpacaProvider(null),
+ 			polygonProvider(null)
+@@ -227,6 +282,110 @@
+ 		server.verify();
+ 	}
+ 
++	@Test
++	void returnsEuroQuoteForAmsterdamSymbolWhenFmpProvidesCurrency() {
++		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
++		when(catalog.load()).thenReturn(List.of());
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider = polygonMarketDataProvider(null);
++
++		RestClient.Builder builder = RestClient.builder();
++		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
++		server.expect(requestTo("https://financialmodelingprep.com/stable/quote?symbol=ASML.AS&apikey=fmp-key"))
++			.andExpect(method(HttpMethod.GET))
++			.andRespond(withSuccess("""
++				[{"symbol":"ASML.AS","price":675.40,"change":4.10,"changesPercentage":0.61,"currency":"EUR"}]
++				""", MediaType.APPLICATION_JSON));
++
++		TickerLookupTool tool = new TickerLookupTool(
++			builder,
++			new FinancialModelingPrepProperties("fmp-key", "https://financialmodelingprep.com"),
++			catalog,
++			polygonMarketDataProvider,
++			brapiProvider(null),
++			alpacaProvider(null),
++			polygonProvider(null)
++		);
++
++		StockQuote quote = tool.fetchQuote("asml.as");
++
++		assertThat(quote.symbol()).isEqualTo("ASML.AS");
++		assertThat(quote.price()).isEqualByComparingTo("675.40");
++		assertThat(quote.currencyCode()).isEqualTo("EUR");
++		server.verify();
++	}
++
++	@Test
++	void returnsQuoteFromPolygonBeforeAlpacaAndFmp() {
++		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
++		when(catalog.load()).thenReturn(List.of());
++		PolygonMarketDataTool polygonMarketDataTool = mock(PolygonMarketDataTool.class);
++		when(polygonMarketDataTool.fetchQuote("PNL.AS")).thenReturn(new StockQuote("PNL.AS", new java.math.BigDecimal("10.25"), new java.math.BigDecimal("0.15"), new java.math.BigDecimal("1.49"), "EUR"));
++		AlpacaMarketDataTool alpaca = mock(AlpacaMarketDataTool.class);
++
++		TickerLookupTool tool = new TickerLookupTool(
++			RestClient.builder(),
++			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
++			catalog,
++			polygonMarketDataProvider(polygonMarketDataTool),
++			brapiProvider(null),
++			alpacaProvider(alpaca),
++			polygonProvider(null)
++		);
++
++		StockQuote quote = tool.fetchQuote("PNL.AS");
++
++		assertThat(quote.symbol()).isEqualTo("PNL.AS");
++		assertThat(quote.price()).isEqualByComparingTo("10.25");
++		assertThat(quote.currencyCode()).isEqualTo("EUR");
++		verifyNoInteractions(alpaca);
++	}
++
++	@Test
++	void fallsBackToAlpacaWhenPolygonQuoteIsUnavailable() {
++		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
++		when(catalog.load()).thenReturn(List.of());
++		PolygonMarketDataTool polygonMarketDataTool = mock(PolygonMarketDataTool.class);
++		when(polygonMarketDataTool.fetchQuote("PNL.AS")).thenThrow(new IllegalStateException("No Polygon quote found for symbol: PNL.AS"));
++		RestClient.Builder builder = RestClient.builder();
++		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
++		server.expect(requestTo("https://data.alpaca.markets/v2/stocks/PNL.AS/snapshot?feed=iex"))
++			.andExpect(method(HttpMethod.GET))
++			.andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("APCA-API-KEY-ID", "key-id"))
++			.andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("APCA-API-SECRET-KEY", "secret"))
++			.andRespond(withSuccess("""
++				{
++				  "symbol":"PNL.AS",
++				  "latestTrade":{"symbol":"PNL.AS","p":12.34,"t":"2026-09-03T10:15:30Z"},
++				  "prevDailyBar":{"c":12.00}
++				}
++				""", MediaType.APPLICATION_JSON));
++
++		AlpacaMarketDataTool alpaca = new AlpacaMarketDataTool(builder, new AlpacaProperties("key-id", "secret", "https://data.alpaca.markets", "iex"));
++		TickerLookupTool tool = new TickerLookupTool(
++			RestClient.builder(),
++			new FinancialModelingPrepProperties("", "https://financialmodelingprep.com"),
++			catalog,
++			polygonMarketDataProvider(polygonMarketDataTool),
++			brapiProvider(null),
++			alpacaProvider(alpaca),
++			polygonProvider(null)
++		);
++
++		StockQuote quote = tool.fetchQuote("PNL.AS");
++
++		assertThat(quote.symbol()).isEqualTo("PNL.AS");
++		assertThat(quote.price()).isEqualByComparingTo("12.34");
++		assertThat(quote.currencyCode()).isEqualTo("EUR");
++		server.verify();
++	}
++
++	@SuppressWarnings("unchecked")
++	private static ObjectProvider<PolygonMarketDataTool> polygonMarketDataProvider(PolygonMarketDataTool polygonMarketDataTool) {
++		ObjectProvider<PolygonMarketDataTool> provider = mock(ObjectProvider.class);
++		when(provider.getIfAvailable()).thenReturn(polygonMarketDataTool);
++		return provider;
++	}
++
+ 	@SuppressWarnings("unchecked")
+ 	private static ObjectProvider<BrapiMarketDataTool> brapiProvider(BrapiMarketDataTool brapiMarketDataTool) {
+ 		ObjectProvider<BrapiMarketDataTool> provider = mock(ObjectProvider.class);
+Index: src/main/java/com/silvionetto/finance/StockRecommendationEngine.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/StockRecommendationEngine.java b/src/main/java/com/silvionetto/finance/StockRecommendationEngine.java
+--- a/src/main/java/com/silvionetto/finance/StockRecommendationEngine.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/StockRecommendationEngine.java	(date 1789319042165)
+@@ -22,6 +22,7 @@
+ 				quote.change(),
+ 				null,
+ 				quote.currencyCode(),
++				quote.quoteDate(),
+ 				StockRecommendation.HOLD,
+ 				"No percentage change was available, so hold for now."
+ 			);
+@@ -35,6 +36,7 @@
+ 				quote.change(),
+ 				changePercent,
+ 				quote.currencyCode(),
++				quote.quoteDate(),
+ 				StockRecommendation.SELL,
+ 				"Price is up %s%%, which is a strong move, so trim or sell if you want to lock in gains.".formatted(formatPercent(changePercent))
+ 			);
+@@ -48,6 +50,7 @@
+ 				quote.change(),
+ 				changePercent,
+ 				quote.currencyCode(),
++				quote.quoteDate(),
+ 				StockRecommendation.BUY,
+ 				"Price is down %s%%, which is a meaningful drop, so this is a buy/watch signal.".formatted(formatPercent(changePercent))
+ 			);
+@@ -60,6 +63,7 @@
+ 			quote.change(),
+ 			changePercent,
+ 			quote.currencyCode(),
++			quote.quoteDate(),
+ 			StockRecommendation.HOLD,
+ 			"Price moved %s%%, which is within the hold range.".formatted(formatPercent(changePercent))
+ 		);
+Index: src/test/java/com/silvionetto/finance/FinanceApplicationTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/FinanceApplicationTests.java b/src/test/java/com/silvionetto/finance/FinanceApplicationTests.java
+--- a/src/test/java/com/silvionetto/finance/FinanceApplicationTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/FinanceApplicationTests.java	(date 1789145525643)
+@@ -1,14 +1,30 @@
+ package com.silvionetto.finance;
+ 
++import static org.mockito.Mockito.mock;
++
++import javax.sql.DataSource;
+ import org.junit.jupiter.api.Test;
+ import org.springframework.boot.test.context.SpringBootTest;
+ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
++import org.springframework.boot.test.context.TestConfiguration;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Import;
+ 
+ @SpringBootTest(webEnvironment = WebEnvironment.NONE)
++@Import(FinanceApplicationTests.TestConfig.class)
+ class FinanceApplicationTests {
+ 
+ 	@Test
+ 	void contextLoads() {
+ 	}
+ 
++	@TestConfiguration
++	static class TestConfig {
++
++		@Bean
++		DataSource dataSource() {
++			return mock(DataSource.class);
++		}
++	}
++
+ }
+Index: src/test/java/com/silvionetto/finance/ChatPageControllerTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/ChatPageControllerTests.java b/src/test/java/com/silvionetto/finance/ChatPageControllerTests.java
+--- a/src/test/java/com/silvionetto/finance/ChatPageControllerTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/ChatPageControllerTests.java	(date 1788895143745)
+@@ -24,7 +24,7 @@
+ 	}
+ 
+ 	@Test
+-	void chatTemplateIncludesMarkdownRenderingHooks() throws Exception {
++	void chatTemplateIncludesAssistantRenderingHooks() throws Exception {
+ 		String template = StreamUtils.copyToString(
+ 			new ClassPathResource("templates/chat.html").getInputStream(),
+ 			StandardCharsets.UTF_8
+@@ -32,7 +32,10 @@
+ 
+ 		assertThat(template, containsString("/webjars/dompurify/3.2.6/dist/purify.min.js"));
+ 		assertThat(template, containsString("/webjars/marked/15.0.12/lib/marked.umd.js"));
++		assertThat(template, containsString("function normalizeResponseFormat(format)"));
++		assertThat(template, containsString("function appendHtmlPreviewMessage(role, html)"));
+ 		assertThat(template, containsString("function appendMarkdownMessage(role, markdown)"));
+-		assertThat(template, containsString("function appendAssistantMessage(text)"));
++		assertThat(template, containsString("function appendAssistantMessage(text, format)"));
++		assertThat(template, containsString("data.format ?? 'markdown'"));
+ 	}
+ }
+Index: src/test/java/com/silvionetto/finance/ChatControllerTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/ChatControllerTests.java b/src/test/java/com/silvionetto/finance/ChatControllerTests.java
+--- a/src/test/java/com/silvionetto/finance/ChatControllerTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/ChatControllerTests.java	(date 1788895134781)
+@@ -17,7 +17,7 @@
+ 	@Test
+ 	void chatReturnsResponse() throws Exception {
+ 		ChatService chatService = mock(ChatService.class);
+-		when(chatService.chat(anyString())).thenReturn("hello");
++		when(chatService.chat(anyString())).thenReturn(new ChatReply("hello", ChatResponseFormat.MARKDOWN));
+ 
+ 		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatController(chatService, new RequestSessionContext())).build();
+ 
+@@ -25,6 +25,6 @@
+ 				.contentType(MediaType.APPLICATION_JSON)
+ 				.content("{\"prompt\":\"hi\"}"))
+ 			.andExpect(status().isOk())
+-			.andExpect(content().json("{\"response\":\"hello\"}"));
++			.andExpect(content().json("{\"response\":\"hello\",\"format\":\"markdown\"}"));
+ 	}
+ }
+Index: src/main/java/com/silvionetto/finance/PolygonMarketDataTool.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/PolygonMarketDataTool.java b/src/main/java/com/silvionetto/finance/PolygonMarketDataTool.java
+--- a/src/main/java/com/silvionetto/finance/PolygonMarketDataTool.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/PolygonMarketDataTool.java	(date 1789319031003)
+@@ -1,17 +1,24 @@
+ package com.silvionetto.finance;
+ 
+ import java.math.BigDecimal;
++import java.math.RoundingMode;
+ import java.time.LocalDate;
++import java.time.ZoneId;
++import java.util.List;
+ import java.util.Map;
+ 
+ import org.springframework.ai.tool.annotation.Tool;
+ import org.springframework.core.ParameterizedTypeReference;
+ import org.springframework.stereotype.Component;
+ import org.springframework.web.client.RestClient;
++import org.springframework.web.client.RestClientResponseException;
+ 
+ @Component
+ public class PolygonMarketDataTool {
+ 
++	private static final ZoneId AMSTERDAM_ZONE = ZoneId.of("Europe/Amsterdam");
++	private static final int AMSTERDAM_HISTORY_LOOKBACK_DAYS = 14;
++
+ 	private final RestClient restClient;
+ 	private final PolygonProperties properties;
+ 
+@@ -20,6 +27,29 @@
+ 		this.restClient = restClientBuilder.baseUrl(properties.baseUrl()).build();
+ 	}
+ 
++	public StockQuote fetchQuote(String symbol) {
++		if (symbol == null || symbol.isBlank()) {
++			throw new IllegalArgumentException("symbol must not be blank");
++		}
++		if (this.properties.apiKey() == null || this.properties.apiKey().isBlank()) {
++			throw new IllegalStateException("Polygon API key is not configured");
++		}
++
++		String normalizedSymbol = MarketSymbolSupport.normalize(symbol);
++		StockQuote realtimeQuote = fetchRealtimeQuoteOrNull(normalizedSymbol);
++		if (realtimeQuote != null) {
++			return realtimeQuote;
++		}
++		if (MarketSymbolSupport.isAmsterdamSymbol(normalizedSymbol)) {
++			StockQuote latestPublishedQuote = fetchLatestPublishedAmsterdamQuoteOrNull(normalizedSymbol);
++			if (latestPublishedQuote != null) {
++				return latestPublishedQuote;
++			}
++		}
++
++		throw new IllegalStateException("No Polygon quote found for symbol: " + normalizedSymbol);
++	}
++
+ 	@Tool(description = "Get open and close market prices for a stock ticker using Polygon.io")
+ 	public String getOpenAndClosePrices(String symbol, String date) {
+ 		if (symbol == null || symbol.isBlank()) {
+@@ -52,10 +82,228 @@
+ 		return "symbol=%s, date=%s, open=%s, close=%s".formatted(symbol, from != null ? from : tradingDate, toNumber(open), toNumber(close));
+ 	}
+ 
++	@Tool(description = "Get the latest market quote for a stock ticker using Polygon.io")
++	public String getLatestQuote(String symbol) {
++		StockQuote quote = fetchQuote(symbol);
++		return "symbol=%s, price=%s, change=%s, changesPercentage=%s".formatted(
++			quote.symbol(),
++			quote.price(),
++			quote.change(),
++			quote.changePercent()
++		);
++	}
++
++	private StockQuote fetchRealtimeQuoteOrNull(String symbol) {
++		Map<String, Object> lastTradeResponse = fetchLastTradeResponseOrNull(symbol);
++		BigDecimal lastTradePrice = extractPrice(lastTradeResponse, "price", "p");
++		if (lastTradePrice == null) {
++			return null;
++		}
++
++		BigDecimal previousClose = fetchPreviousCloseOrNull(symbol);
++		BigDecimal change = null;
++		BigDecimal changePercent = null;
++		if (previousClose != null) {
++			change = lastTradePrice.subtract(previousClose);
++			changePercent = previousClose.compareTo(BigDecimal.ZERO) == 0
++				? null
++				: change.multiply(BigDecimal.valueOf(100)).divide(previousClose, 10, RoundingMode.HALF_UP);
++		}
++
++		return new StockQuote(
++			symbol,
++			lastTradePrice,
++			change,
++			changePercent,
++			MarketSymbolSupport.defaultCurrencyCode(symbol),
++			resolveAmsterdamQuoteDate(lastTradeResponse, symbol)
++		);
++	}
++
++	private StockQuote fetchLatestPublishedAmsterdamQuoteOrNull(String symbol) {
++		LocalDate today = LocalDate.now(AMSTERDAM_ZONE);
++		LocalDate from = today.minusDays(AMSTERDAM_HISTORY_LOOKBACK_DAYS);
++		Map<String, Object> response = this.restClient.get()
++			.uri(uriBuilder -> uriBuilder
++				.path("/v2/aggs/ticker/{symbol}/range/1/day/{from}/{to}")
++				.queryParam("adjusted", true)
++				.queryParam("sort", "desc")
++				.queryParam("limit", 2)
++				.queryParam("apiKey", this.properties.apiKey())
++				.build(symbol, from, today))
++			.retrieve()
++			.body(new ParameterizedTypeReference<>() {});
++
++		if (response == null || response.isEmpty()) {
++			return null;
++		}
++
++		List<Map<String, Object>> results = listOfMaps(response.get("results"));
++		if (results.isEmpty()) {
++			return null;
++		}
++
++		Map<String, Object> latestBar = results.getFirst();
++		BigDecimal latestClose = extractPrice(latestBar, "close", "c");
++		LocalDate latestDate = QuoteDateSupport.parseDate(latestBar.get("t"), AMSTERDAM_ZONE);
++		if (latestClose == null || latestDate == null) {
++			return null;
++		}
++
++		BigDecimal previousClose = results.size() > 1 ? extractPrice(results.get(1), "close", "c") : null;
++		BigDecimal change = null;
++		BigDecimal changePercent = null;
++		if (previousClose != null && previousClose.compareTo(BigDecimal.ZERO) != 0) {
++			change = latestClose.subtract(previousClose);
++			changePercent = change.multiply(BigDecimal.valueOf(100)).divide(previousClose, 10, RoundingMode.HALF_UP);
++		}
++
++		return new StockQuote(symbol, latestClose, change, changePercent, MarketSymbolSupport.defaultCurrencyCode(symbol), latestDate);
++	}
++
++	private Map<String, Object> fetchLastTradeResponseOrNull(String symbol) {
++		try {
++			return this.restClient.get()
++				.uri(uriBuilder -> uriBuilder
++					.path("/v2/last/trade/{symbol}")
++					.queryParam("apiKey", this.properties.apiKey())
++					.build(symbol))
++				.retrieve()
++				.body(new ParameterizedTypeReference<>() {});
++		} catch (RestClientResponseException ex) {
++			if (isUnavailable(ex)) {
++				return null;
++			}
++			throw ex;
++		}
++	}
++
++	private BigDecimal fetchPreviousCloseOrNull(String symbol) {
++		try {
++			Map<String, Object> response = this.restClient.get()
++				.uri(uriBuilder -> uriBuilder
++					.path("/v2/aggs/ticker/{symbol}/prev")
++					.queryParam("adjusted", true)
++					.queryParam("apiKey", this.properties.apiKey())
++					.build(symbol))
++				.retrieve()
++				.body(new ParameterizedTypeReference<>() {});
++
++			return extractPrice(response, "close", "c");
++		} catch (RestClientResponseException ex) {
++			if (isUnavailable(ex)) {
++				return null;
++			}
++			throw ex;
++		}
++	}
++
++	private static boolean isUnavailable(RestClientResponseException ex) {
++		int status = ex.getStatusCode().value();
++		return status == 402 || status == 403 || status == 404;
++	}
++
++	private static LocalDate resolveAmsterdamQuoteDate(Map<String, Object> response, String symbol) {
++		if (!MarketSymbolSupport.isAmsterdamSymbol(symbol)) {
++			return null;
++		}
++		return extractLocalDate(response, "t", "timestamp");
++	}
++
++	private static LocalDate extractLocalDate(Map<String, Object> response, String... fieldNames) {
++		Object value = firstValue(response, fieldNames);
++		return QuoteDateSupport.parseDate(value, AMSTERDAM_ZONE);
++	}
++
++	private static BigDecimal extractPrice(Map<String, Object> response, String... fieldNames) {
++		Object value = firstValue(response, fieldNames);
++		return toBigDecimal(value);
++	}
++
++	private static Object firstValue(Map<String, Object> response, String... fieldNames) {
++		if (response == null || response.isEmpty()) {
++			return null;
++		}
++
++		for (String fieldName : fieldNames) {
++			Object directValue = response.get(fieldName);
++			if (directValue != null) {
++				return directValue;
++			}
++		}
++
++		Object results = response.get("results");
++		if (results instanceof Map<?, ?> resultMap) {
++			for (String fieldName : fieldNames) {
++				Object nestedValue = resultMap.get(fieldName);
++				if (nestedValue != null) {
++					return nestedValue;
++				}
++			}
++		}
++		if (results instanceof List<?> resultList && !resultList.isEmpty()) {
++			Object first = resultList.getFirst();
++			if (first instanceof Map<?, ?> firstMap) {
++				for (String fieldName : fieldNames) {
++					Object nestedValue = firstMap.get(fieldName);
++					if (nestedValue != null) {
++						return nestedValue;
++					}
++				}
++			}
++		}
++
++		Object result = response.get("result");
++		if (result instanceof Map<?, ?> resultMap) {
++			for (String fieldName : fieldNames) {
++				Object nestedValue = resultMap.get(fieldName);
++				if (nestedValue != null) {
++					return nestedValue;
++				}
++			}
++		}
++		return null;
++	}
++
++	private static List<Map<String, Object>> listOfMaps(Object value) {
++		if (!(value instanceof List<?> list)) {
++			return List.of();
++		}
++		return list.stream()
++			.filter(Map.class::isInstance)
++			.map(entry -> {
++				Map<String, Object> result = new java.util.LinkedHashMap<>();
++				((Map<?, ?>) entry).forEach((key, nestedValue) -> {
++					if (key != null) {
++						result.put(key.toString(), nestedValue);
++					}
++				});
++				return result;
++			})
++			.toList();
++	}
++
+ 	private static String toNumber(Object value) {
+ 		if (value == null) {
+ 			return "null";
+ 		}
+ 		return value instanceof BigDecimal bigDecimal ? bigDecimal.toPlainString() : value.toString();
+ 	}
++
++	private static BigDecimal toBigDecimal(Object value) {
++		if (value == null) {
++			return null;
++		}
++		if (value instanceof BigDecimal bigDecimal) {
++			return bigDecimal;
++		}
++		if (value instanceof Number number) {
++			return new BigDecimal(number.toString());
++		}
++		String text = value.toString();
++		if (text.isBlank()) {
++			return null;
++		}
++		return new BigDecimal(text);
++	}
+ }
+Index: src/main/java/com/silvionetto/finance/TickerLookupTool.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/TickerLookupTool.java b/src/main/java/com/silvionetto/finance/TickerLookupTool.java
+--- a/src/main/java/com/silvionetto/finance/TickerLookupTool.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/TickerLookupTool.java	(date 1789300826335)
+@@ -4,6 +4,7 @@
+ import java.util.Comparator;
+ import java.util.List;
+ import java.util.Map;
++import java.util.Objects;
+ import org.springframework.ai.tool.annotation.Tool;
+ import org.springframework.beans.factory.ObjectProvider;
+ import org.springframework.core.ParameterizedTypeReference;
+@@ -17,6 +18,7 @@
+ 	private final RestClient restClient;
+ 	private final FinancialModelingPrepProperties properties;
+ 	private final CompanyTickerCatalog companyTickerCatalog;
++	private final PolygonMarketDataTool polygonMarketDataTool;
+ 	private final BrapiMarketDataTool brapiMarketDataTool;
+ 	private final AlpacaMarketDataTool alpacaMarketDataTool;
+ 	private final PolygonTickerLookupClient polygonTickerLookupClient;
+@@ -25,12 +27,14 @@
+ 		RestClient.Builder restClientBuilder,
+ 		FinancialModelingPrepProperties properties,
+ 		CompanyTickerCatalog companyTickerCatalog,
++		ObjectProvider<PolygonMarketDataTool> polygonMarketDataToolProvider,
+ 		ObjectProvider<BrapiMarketDataTool> brapiMarketDataToolProvider,
+ 		ObjectProvider<AlpacaMarketDataTool> alpacaMarketDataToolProvider,
+ 		ObjectProvider<PolygonTickerLookupClient> polygonTickerLookupClientProvider
+ 	) {
+ 		this.properties = properties;
+ 		this.companyTickerCatalog = companyTickerCatalog;
++		this.polygonMarketDataTool = polygonMarketDataToolProvider.getIfAvailable();
+ 		this.brapiMarketDataTool = brapiMarketDataToolProvider.getIfAvailable();
+ 		this.alpacaMarketDataTool = alpacaMarketDataToolProvider.getIfAvailable();
+ 		this.polygonTickerLookupClient = polygonTickerLookupClientProvider.getIfAvailable();
+@@ -43,11 +47,14 @@
+ 			throw new IllegalArgumentException("companyName must not be blank");
+ 		}
+ 		List<CompanyTickerCatalog.CompanyTickerEntry> catalogMatches = this.companyTickerCatalog.load().stream()
+-			.filter(entry -> entry.company_name() != null && normalize(entry.company_name()).equals(normalize(companyName)))
+-			.sorted(Comparator.comparingInt(entry -> Math.abs(entry.company_name().length() - companyName.length())))
++			.filter(entry -> entry.company_name() != null)
++			.sorted(Comparator
++				.comparingInt((CompanyTickerCatalog.CompanyTickerEntry entry) -> scoreCompanyMatch(normalize(companyName), catalogMatch(entry)))
++				.thenComparing(entry -> !isAmsterdamCatalogEntry(entry))
++				.thenComparingInt(entry -> Math.abs(entry.company_name().length() - companyName.length())))
+ 			.toList();
+ 
+-		if (!catalogMatches.isEmpty()) {
++		if (!catalogMatches.isEmpty() && isCatalogMatch(companyName, catalogMatches.getFirst())) {
+ 			return catalogMatches.getFirst().ticker_symbol();
+ 		}
+ 
+@@ -93,22 +100,26 @@
+ 			throw new IllegalStateException("No ticker found for company name: " + companyName);
+ 		}
+ 
++		String preferredTicker = resolvePreferredTicker(companyName, matches);
++		if (preferredTicker != null) {
++			return preferredTicker;
++		}
++
+ 		if (matches.size() > 1) {
+ 			List<String> exchanges = matches.stream()
+-				.map(match -> match.get("exchangeShortName"))
+-				.filter(value -> value != null && !value.toString().isBlank())
+-				.map(Object::toString)
++				.map(TickerLookupTool::exchangeDescription)
++				.filter(Objects::nonNull)
+ 				.distinct()
+ 				.toList();
+ 			String exchangeHint = exchanges.isEmpty() ? "Please provide the exchange." : "Please provide one of these exchanges: " + String.join(", ", exchanges) + ".";
+ 			throw new IllegalStateException("Ambiguous company name: " + companyName + ". " + exchangeHint);
+ 		}
+ 
+-		Object symbol = matches.getFirst().get("symbol");
+-		if (symbol == null || symbol.toString().isBlank()) {
++		String symbol = symbolOf(matches.getFirst());
++		if (symbol == null) {
+ 			throw new IllegalStateException("Ticker symbol missing for company name: " + companyName);
+ 		}
+-		return symbol.toString();
++		return symbol;
+ 	}
+ 
+ 	public StockQuote fetchQuote(String symbol) {
+@@ -116,6 +127,19 @@
+ 			throw new IllegalArgumentException("symbol must not be blank");
+ 		}
+ 		String resolvedSymbol = canonicalizeSymbol(symbol);
++		if (this.polygonMarketDataTool != null) {
++			try {
++				return this.polygonMarketDataTool.fetchQuote(resolvedSymbol);
++			} catch (IllegalStateException ex) {
++				if (!isPolygonUnavailable(ex)) {
++					throw ex;
++				}
++			} catch (RestClientResponseException ex) {
++				if (!isPolygonUnavailable(ex)) {
++					throw ex;
++				}
++			}
++		}
+ 		if (isBrapiAvailableFor(resolvedSymbol)) {
+ 			return this.brapiMarketDataTool.fetchQuote(resolvedSymbol);
+ 		}
+@@ -154,7 +178,8 @@
+ 			resolvedSymbol,
+ 			toBigDecimal(quote.get("price")),
+ 			toBigDecimal(quote.get("change")),
+-			toBigDecimal(quote.get("changesPercentage"))
++			toBigDecimal(quote.get("changesPercentage")),
++			resolveCurrencyCode(quote, resolvedSymbol)
+ 		);
+ 	}
+ 
+@@ -163,9 +188,9 @@
+ 			throw new IllegalArgumentException("symbol must not be blank");
+ 		}
+ 		if (this.brapiMarketDataTool == null) {
+-			return symbol.trim();
++			return MarketSymbolSupport.normalize(symbol);
+ 		}
+-		return this.brapiMarketDataTool.canonicalizeSymbol(symbol);
++		return MarketSymbolSupport.normalize(this.brapiMarketDataTool.canonicalizeSymbol(symbol));
+ 	}
+ 
+ 	private boolean isBrapiAvailableFor(String symbol) {
+@@ -184,11 +209,146 @@
+ 		);
+ 	}
+ 
++	private static boolean isPolygonUnavailable(IllegalStateException ex) {
++		String message = ex.getMessage();
++		return message != null && (
++			message.contains("Polygon API key is not configured")
++				|| message.contains("No Polygon quote found")
++				|| message.contains("No Polygon previous close found")
++		);
++	}
++
++	private static boolean isPolygonUnavailable(RestClientResponseException ex) {
++		int status = ex.getStatusCode().value();
++		return status == 402 || status == 403 || status == 404;
++	}
++
+ 	private static String normalize(String value) {
+ 		return value == null ? "" : value.trim().toLowerCase().replaceAll("[^a-z0-9]", "");
+ 	}
+ 
+-	@Tool(description = "Get the latest quote for a stock ticker symbol using Financial Modeling Prep")
++	private static boolean isCatalogMatch(String companyName, CompanyTickerCatalog.CompanyTickerEntry entry) {
++		int score = scoreCompanyMatch(normalize(companyName), catalogMatch(entry));
++		return score <= 2;
++	}
++
++	private static boolean isAmsterdamCatalogEntry(CompanyTickerCatalog.CompanyTickerEntry entry) {
++		return MarketSymbolSupport.isAmsterdamSymbol(entry.ticker_symbol())
++			|| isAmsterdamField(entry.exchange());
++	}
++
++	private static Map<String, Object> catalogMatch(CompanyTickerCatalog.CompanyTickerEntry entry) {
++		Map<String, Object> values = new java.util.LinkedHashMap<>();
++		values.put("symbol", entry.ticker_symbol());
++		values.put("name", entry.company_name());
++		values.put("exchangeShortName", entry.exchange());
++		return values;
++	}
++
++	private static String resolvePreferredTicker(String companyName, List<Map<String, Object>> matches) {
++		String normalizedCompanyName = normalize(companyName);
++		List<Map<String, Object>> rankedMatches = matches.stream()
++			.sorted(Comparator
++				.comparingInt((Map<String, Object> match) -> scoreCompanyMatch(normalizedCompanyName, match))
++				.thenComparing(match -> !isAmsterdamMatch(match))
++				.thenComparingInt(match -> Math.abs(primaryName(match).length() - normalizedCompanyName.length())))
++			.toList();
++
++		Map<String, Object> bestMatch = rankedMatches.getFirst();
++		String bestSymbol = symbolOf(bestMatch);
++		if (bestSymbol == null) {
++			return null;
++		}
++		if (rankedMatches.size() == 1) {
++			return bestSymbol;
++		}
++
++		Map<String, Object> secondMatch = rankedMatches.get(1);
++		int bestScore = scoreCompanyMatch(normalizedCompanyName, bestMatch);
++		int secondScore = scoreCompanyMatch(normalizedCompanyName, secondMatch);
++		if (bestScore < secondScore) {
++			return bestSymbol;
++		}
++		if (isAmsterdamMatch(bestMatch) && !isAmsterdamMatch(secondMatch)) {
++			return bestSymbol;
++		}
++		return null;
++	}
++
++	private static int scoreCompanyMatch(String normalizedSearch, Map<String, Object> match) {
++		String symbol = normalize(stringValue(match.get("symbol")));
++		String name = primaryName(match);
++		String longName = normalize(stringValue(match.get("longName")));
++		if (normalizedSearch.equals(symbol) || normalizedSearch.equals(name) || normalizedSearch.equals(longName)) {
++			return 0;
++		}
++		if (name.startsWith(normalizedSearch) || longName.startsWith(normalizedSearch)) {
++			return 1;
++		}
++		if (name.contains(normalizedSearch) || longName.contains(normalizedSearch)) {
++			return 2;
++		}
++		return 3;
++	}
++
++	private static String primaryName(Map<String, Object> match) {
++		return normalize(firstNonBlank(stringValue(match.get("name")), stringValue(match.get("companyName")), stringValue(match.get("longName"))));
++	}
++
++	private static boolean isAmsterdamMatch(Map<String, Object> match) {
++		return MarketSymbolSupport.isAmsterdamSymbol(symbolOf(match))
++			|| isAmsterdamField(match.get("exchangeShortName"))
++			|| isAmsterdamField(match.get("exchange"))
++			|| isAmsterdamField(match.get("stockExchange"))
++			|| isAmsterdamField(match.get("exchangeFullName"));
++	}
++
++	private static boolean isAmsterdamField(Object value) {
++		String normalized = normalize(stringValue(value));
++		return normalized.equals("ams")
++			|| normalized.contains("amsterdam")
++			|| normalized.contains("euronextamsterdam");
++	}
++
++	private static String exchangeDescription(Map<String, Object> match) {
++		return firstNonBlank(
++			stringValue(match.get("exchangeShortName")),
++			stringValue(match.get("exchange")),
++			stringValue(match.get("stockExchange")),
++			stringValue(match.get("exchangeFullName"))
++		);
++	}
++
++	private static String symbolOf(Map<String, Object> match) {
++		String symbol = stringValue(match.get("symbol"));
++		return symbol == null || symbol.isBlank() ? null : MarketSymbolSupport.normalize(symbol);
++	}
++
++	private static String resolveCurrencyCode(Map<String, Object> quote, String symbol) {
++		String currency = firstNonBlank(
++			stringValue(quote.get("currency")),
++			stringValue(quote.get("reportedCurrency"))
++		);
++		if (currency != null) {
++			return currency.trim().toUpperCase(java.util.Locale.ROOT);
++		}
++		return MarketSymbolSupport.defaultCurrencyCode(symbol);
++	}
++
++	private static String firstNonBlank(String... values) {
++		for (String value : values) {
++			if (value != null && !value.isBlank()) {
++				return value;
++			}
++		}
++		return null;
++	}
++
++	private static String stringValue(Object value) {
++		return value == null ? null : value.toString();
++	}
++
++	@Tool(description = "Get the latest quote for a stock ticker symbol using the configured market data providers")
+ 	public String getQuote(String symbol) {
+ 		StockQuote quote = fetchQuote(symbol);
+ 		return "symbol=%s, price=%s, change=%s, changesPercentage=%s".formatted(
+Index: src/test/resources/application.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/resources/application.properties b/src/test/resources/application.properties
+--- a/src/test/resources/application.properties	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/resources/application.properties	(date 1789145563122)
+@@ -1,6 +1,3 @@
+ spring.ai.openai.api-key=test
+ app.flyway.enabled=false
+ spring.ai.vectorstore.pgvector.initialize-schema=false
+-spring.datasource.url=jdbc:postgresql://localhost:5432/finance
+-spring.datasource.username=finance
+-spring.datasource.password=finance
+Index: src/test/java/com/silvionetto/finance/PolygonMarketDataToolTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/PolygonMarketDataToolTests.java b/src/test/java/com/silvionetto/finance/PolygonMarketDataToolTests.java
+--- a/src/test/java/com/silvionetto/finance/PolygonMarketDataToolTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/PolygonMarketDataToolTests.java	(date 1789319051614)
+@@ -2,10 +2,12 @@
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.hamcrest.Matchers.matchesPattern;
+ import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+ import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+ import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+ 
++import java.time.LocalDate;
+ import org.junit.jupiter.api.Test;
+ import org.springframework.http.MediaType;
+ import org.springframework.test.web.client.MockRestServiceServer;
+@@ -13,6 +15,87 @@
+ 
+ class PolygonMarketDataToolTests {
+ 
++	@Test
++	void returnsLatestQuote() {
++		PolygonProperties properties = new PolygonProperties("key", "https://api.polygon.io");
++		RestClient.Builder builder = RestClient.builder();
++		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
++		server.expect(requestTo("https://api.polygon.io/v2/last/trade/PNL.AS?apiKey=key"))
++			.andExpect(method(org.springframework.http.HttpMethod.GET))
++			.andRespond(withSuccess("""
++				{"status":"OK","results":{"p":12.34,"t":"2026-09-03T16:15:30Z"}}
++				""", MediaType.APPLICATION_JSON));
++		server.expect(requestTo("https://api.polygon.io/v2/aggs/ticker/PNL.AS/prev?adjusted=true&apiKey=key"))
++			.andExpect(method(org.springframework.http.HttpMethod.GET))
++			.andRespond(withSuccess("""
++				{"status":"OK","results":[{"c":12.00}]}
++				""", MediaType.APPLICATION_JSON));
++
++		PolygonMarketDataTool tool = new PolygonMarketDataTool(builder, properties);
++
++		StockQuote quote = tool.fetchQuote("pnl.as");
++
++		assertThat(quote.symbol()).isEqualTo("PNL.AS");
++		assertThat(quote.price()).isEqualByComparingTo("12.34");
++		assertThat(quote.change()).isEqualByComparingTo("0.34");
++		assertThat(quote.changePercent()).isEqualByComparingTo("2.8333333333");
++		assertThat(quote.currencyCode()).isEqualTo("EUR");
++		assertThat(quote.quoteDate()).isEqualTo(LocalDate.of(2026, 9, 3));
++		server.verify();
++	}
++
++	@Test
++	void returnsLatestQuoteWhenPreviousCloseIsUnavailable() {
++		PolygonProperties properties = new PolygonProperties("key", "https://api.polygon.io");
++		RestClient.Builder builder = RestClient.builder();
++		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
++		server.expect(requestTo("https://api.polygon.io/v2/last/trade/PNL.AS?apiKey=key"))
++			.andExpect(method(org.springframework.http.HttpMethod.GET))
++			.andRespond(withSuccess("""
++				{"status":"OK","results":{"p":12.34}}
++				""", MediaType.APPLICATION_JSON));
++		server.expect(requestTo("https://api.polygon.io/v2/aggs/ticker/PNL.AS/prev?adjusted=true&apiKey=key"))
++			.andExpect(method(org.springframework.http.HttpMethod.GET))
++			.andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withStatus(org.springframework.http.HttpStatus.NOT_FOUND));
++
++		PolygonMarketDataTool tool = new PolygonMarketDataTool(builder, properties);
++
++		StockQuote quote = tool.fetchQuote("PNL.AS");
++
++		assertThat(quote.symbol()).isEqualTo("PNL.AS");
++		assertThat(quote.price()).isEqualByComparingTo("12.34");
++		assertThat(quote.change()).isNull();
++		assertThat(quote.changePercent()).isNull();
++		assertThat(quote.currencyCode()).isEqualTo("EUR");
++		server.verify();
++	}
++
++	@Test
++	void fallsBackToLatestPublishedAmsterdamDateWhenLatestTradeIsUnavailable() {
++		PolygonProperties properties = new PolygonProperties("key", "https://api.polygon.io");
++		RestClient.Builder builder = RestClient.builder();
++		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
++		server.expect(requestTo("https://api.polygon.io/v2/last/trade/PNL.AS?apiKey=key"))
++			.andExpect(method(org.springframework.http.HttpMethod.GET))
++			.andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withStatus(org.springframework.http.HttpStatus.NOT_FOUND));
++		server.expect(requestTo(matchesPattern("https://api\\.polygon\\.io/v2/aggs/ticker/PNL\\.AS/range/1/day/.+\\?adjusted=true&sort=desc&limit=2&apiKey=key")))
++			.andExpect(method(org.springframework.http.HttpMethod.GET))
++			.andRespond(withSuccess("""
++				{"status":"OK","results":[{"c":12.34,"t":"2026-09-12"},{"c":12.00,"t":"2026-09-11"}]}
++				""", MediaType.APPLICATION_JSON));
++
++		PolygonMarketDataTool tool = new PolygonMarketDataTool(builder, properties);
++
++		StockQuote quote = tool.fetchQuote("PNL.AS");
++
++		assertThat(quote.symbol()).isEqualTo("PNL.AS");
++		assertThat(quote.price()).isEqualByComparingTo("12.34");
++		assertThat(quote.change()).isEqualByComparingTo("0.34");
++		assertThat(quote.changePercent()).isEqualByComparingTo("2.8333333333");
++		assertThat(quote.quoteDate()).isEqualTo(LocalDate.of(2026, 9, 12));
++		server.verify();
++	}
++
+ 	@Test
+ 	void returnsOpenAndClosePrices() {
+ 		PolygonProperties properties = new PolygonProperties("key", "https://api.polygon.io");
+Index: src/main/java/com/silvionetto/finance/AlpacaMarketDataTool.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/AlpacaMarketDataTool.java b/src/main/java/com/silvionetto/finance/AlpacaMarketDataTool.java
+--- a/src/main/java/com/silvionetto/finance/AlpacaMarketDataTool.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/AlpacaMarketDataTool.java	(date 1789319001424)
+@@ -1,6 +1,8 @@
+ package com.silvionetto.finance;
+ 
+ import java.math.BigDecimal;
++import java.time.LocalDate;
++import java.time.ZoneId;
+ import java.util.LinkedHashMap;
+ import java.util.Map;
+ 
+@@ -12,6 +14,8 @@
+ @Component
+ public class AlpacaMarketDataTool {
+ 
++	private static final ZoneId AMSTERDAM_ZONE = ZoneId.of("Europe/Amsterdam");
++
+ 	private final RestClient restClient;
+ 	private final AlpacaProperties properties;
+ 
+@@ -171,6 +175,10 @@
+ 			}
+ 		}
+ 
+-		return new StockQuote(symbol, price, change, changePercent);
++		LocalDate quoteDate = MarketSymbolSupport.isAmsterdamSymbol(symbol)
++			? QuoteDateSupport.parseDate(firstPresent(latestTrade, "t", "timestamp"), AMSTERDAM_ZONE)
++			: null;
++
++		return new StockQuote(symbol, price, change, changePercent, MarketSymbolSupport.defaultCurrencyCode(symbol), quoteDate);
+ 	}
+ }
+Index: src/test/java/com/silvionetto/finance/StockCheckServiceTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/StockCheckServiceTests.java b/src/test/java/com/silvionetto/finance/StockCheckServiceTests.java
+--- a/src/test/java/com/silvionetto/finance/StockCheckServiceTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/StockCheckServiceTests.java	(date 1789319050344)
+@@ -6,6 +6,7 @@
+ 
+ import java.math.BigDecimal;
+ import java.time.Instant;
++import java.time.LocalDate;
+ import java.util.List;
+ import org.junit.jupiter.api.Test;
+ 
+@@ -18,15 +19,17 @@
+ 		StockRecommendationEngine engine = new StockRecommendationEngine();
+ 		RequestSessionContext requestSessionContext = new RequestSessionContext();
+ 		StockCheckService service = new StockCheckService(watchlistService, tickerLookupTool, engine, requestSessionContext);
++		LocalDate quoteDate = LocalDate.of(2026, 9, 11);
+ 
+ 		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH)));
+-		when(tickerLookupTool.fetchQuote("AAPL")).thenReturn(new StockQuote("AAPL", new BigDecimal("200"), new BigDecimal("10"), new BigDecimal("6")));
++		when(tickerLookupTool.fetchQuote("AAPL")).thenReturn(new StockQuote("AAPL", new BigDecimal("200"), new BigDecimal("10"), new BigDecimal("6"), "USD", quoteDate));
+ 
+ 		StockCheckSnapshot snapshot = requestSessionContext.withSession("session-1", service::refreshLatestSnapshot);
+ 
+ 		assertThat(snapshot.results()).hasSize(1);
+ 		assertThat(snapshot.results().getFirst().recommendation()).isEqualTo(StockRecommendation.SELL);
+ 		assertThat(snapshot.results().getFirst().currencyCode()).isEqualTo("USD");
++		assertThat(snapshot.results().getFirst().quoteDate()).isEqualTo(quoteDate);
+ 	}
+ 
+ 	@Test
+Index: src/main/java/com/silvionetto/finance/StockCheckItemResult.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/StockCheckItemResult.java b/src/main/java/com/silvionetto/finance/StockCheckItemResult.java
+--- a/src/main/java/com/silvionetto/finance/StockCheckItemResult.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/StockCheckItemResult.java	(date 1789319140040)
+@@ -1,6 +1,7 @@
+ package com.silvionetto.finance;
+ 
+ import java.math.BigDecimal;
++import java.time.LocalDate;
+ 
+ public record StockCheckItemResult(
+ 	String symbol,
+@@ -9,6 +10,7 @@
+ 	BigDecimal change,
+ 	BigDecimal changePercent,
+ 	String currencyCode,
++	LocalDate quoteDate,
+ 	StockRecommendation recommendation,
+ 	String explanation,
+ 	String error
+@@ -23,7 +25,7 @@
+ 		StockRecommendation recommendation,
+ 		String explanation
+ 	) {
+-		return new StockCheckItemResult(symbol, companyName, price, change, changePercent, currencyCode, recommendation, explanation, null);
++		return success(symbol, companyName, price, change, changePercent, currencyCode, null, recommendation, explanation);
+ 	}
+ 
+ 	public static StockCheckItemResult success(
+@@ -32,13 +34,27 @@
+ 		BigDecimal price,
+ 		BigDecimal change,
+ 		BigDecimal changePercent,
++		String currencyCode,
++		LocalDate quoteDate,
+ 		StockRecommendation recommendation,
+ 		String explanation
+ 	) {
+-		return success(symbol, companyName, price, change, changePercent, null, recommendation, explanation);
++		return new StockCheckItemResult(symbol, companyName, price, change, changePercent, currencyCode, quoteDate, recommendation, explanation, null);
++	}
++
++	public static StockCheckItemResult success(
++		String symbol,
++		String companyName,
++		BigDecimal price,
++		BigDecimal change,
++		BigDecimal changePercent,
++		StockRecommendation recommendation,
++		String explanation
++	) {
++		return success(symbol, companyName, price, change, changePercent, null, null, recommendation, explanation);
+ 	}
+ 
+ 	public static StockCheckItemResult failure(String symbol, String companyName, String error) {
+-		return new StockCheckItemResult(symbol, companyName, null, null, null, null, null, null, error);
++		return new StockCheckItemResult(symbol, companyName, null, null, null, null, null, null, null, error);
+ 	}
+ }
+Index: src/test/java/com/silvionetto/finance/StockRecommendationEngineTests.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/test/java/com/silvionetto/finance/StockRecommendationEngineTests.java b/src/test/java/com/silvionetto/finance/StockRecommendationEngineTests.java
+--- a/src/test/java/com/silvionetto/finance/StockRecommendationEngineTests.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/test/java/com/silvionetto/finance/StockRecommendationEngineTests.java	(date 1789319047345)
+@@ -4,6 +4,7 @@
+ 
+ import java.math.BigDecimal;
+ import java.time.Instant;
++import java.time.LocalDate;
+ import org.junit.jupiter.api.Test;
+ 
+ class StockRecommendationEngineTests {
+@@ -16,6 +17,7 @@
+ 
+ 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.SELL);
+ 		assertThat(result.currencyCode()).isEqualTo("USD");
++		assertThat(result.quoteDate()).isNull();
+ 		assertThat(result.explanation()).contains("trim or sell");
+ 	}
+ 
+@@ -65,4 +67,19 @@
+ 		assertThat(result.recommendation()).isEqualTo(StockRecommendation.HOLD);
+ 		assertThat(result.explanation()).isEqualTo("Price moved -2.51%, which is within the hold range.");
+ 	}
++
++	@Test
++	void carriesQuoteDateIntoRecommendationResult() {
++		StockRecommendationEngine engine = new StockRecommendationEngine();
++		WatchlistEntry entry = new WatchlistEntry("default", "ASML.AS", "ASML Holding N.V.", Instant.EPOCH, Instant.EPOCH);
++		LocalDate quoteDate = LocalDate.of(2026, 9, 11);
++
++		StockCheckItemResult result = engine.recommend(
++			entry,
++			new StockQuote("ASML.AS", new BigDecimal("675.40"), new BigDecimal("4.10"), new BigDecimal("0.61"), "EUR", quoteDate)
++		);
++
++		assertThat(result.quoteDate()).isEqualTo(quoteDate);
++		assertThat(result.currencyCode()).isEqualTo("EUR");
++	}
+ }
+Index: src/main/java/com/silvionetto/finance/StockQuote.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/java/com/silvionetto/finance/StockQuote.java b/src/main/java/com/silvionetto/finance/StockQuote.java
+--- a/src/main/java/com/silvionetto/finance/StockQuote.java	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/java/com/silvionetto/finance/StockQuote.java	(date 1789318995774)
+@@ -1,22 +1,21 @@
+ package com.silvionetto.finance;
+ 
+ import java.math.BigDecimal;
++import java.time.LocalDate;
+ 
+ public record StockQuote(
+ 	String symbol,
+ 	BigDecimal price,
+ 	BigDecimal change,
+ 	BigDecimal changePercent,
+-	String currencyCode
++	String currencyCode,
++	LocalDate quoteDate
+ ) {
+ 	public StockQuote(String symbol, BigDecimal price, BigDecimal change, BigDecimal changePercent) {
+-		this(symbol, price, change, changePercent, defaultCurrencyCode(symbol));
++		this(symbol, price, change, changePercent, MarketSymbolSupport.defaultCurrencyCode(symbol), null);
+ 	}
+ 
+-	private static String defaultCurrencyCode(String symbol) {
+-		if (symbol == null) {
+-			return "USD";
+-		}
+-		return symbol.trim().toUpperCase().matches("^[A-Z]{4,6}\\d{1,2}$") ? "BRL" : "USD";
++	public StockQuote(String symbol, BigDecimal price, BigDecimal change, BigDecimal changePercent, String currencyCode) {
++		this(symbol, price, change, changePercent, currencyCode, null);
+ 	}
+ }
+Index: src/main/resources/templates/chat.html
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/main/resources/templates/chat.html b/src/main/resources/templates/chat.html
+--- a/src/main/resources/templates/chat.html	(revision a6ba12ea71f73f8d55caf5c1bf011e7ed80a320a)
++++ b/src/main/resources/templates/chat.html	(date 1789319044388)
+@@ -23,59 +23,114 @@
+ 		.message.user { background: #e2e8f0; }
+ 		.message.assistant { background: #dbeafe; }
+ 		.label { display: block; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.35rem; }
+-		.message-body { display: grid; gap: 0.75rem; line-height: 1.5; }
+-		.message-body > :first-child { margin-top: 0; }
+-		.message-body > :last-child { margin-bottom: 0; }
++		.message-body,
++		.html-preview-body { display: grid; gap: 0.75rem; line-height: 1.5; }
++		.message-body > :first-child,
++		.html-preview-body > :first-child { margin-top: 0; }
++		.message-body > :last-child,
++		.html-preview-body > :last-child { margin-bottom: 0; }
+ 		.message-body p,
+ 		.message-body ul,
+ 		.message-body ol,
+ 		.message-body blockquote,
+ 		.message-body pre,
+ 		.message-body table,
+-		.message-body hr { margin: 0; }
++		.message-body hr,
++		.html-preview-body p,
++		.html-preview-body ul,
++		.html-preview-body ol,
++		.html-preview-body blockquote,
++		.html-preview-body pre,
++		.html-preview-body table,
++		.html-preview-body hr { margin: 0; }
+ 		.message-body ul,
+-		.message-body ol { padding-left: 1.5rem; }
+-		.message-body li + li { margin-top: 0.25rem; }
+-		.message-body a { color: #1d4ed8; }
+-		.message-body code {
++		.message-body ol,
++		.html-preview-body ul,
++		.html-preview-body ol { padding-left: 1.5rem; }
++		.message-body li + li,
++		.html-preview-body li + li { margin-top: 0.25rem; }
++		.message-body a,
++		.html-preview-body a { color: #1d4ed8; }
++		.message-body code,
++		.html-preview-body code {
+ 			font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+ 			background: rgba(15, 23, 42, 0.08);
+ 			border-radius: 6px;
+ 			padding: 0.15rem 0.35rem;
+ 			font-size: 0.95em;
+ 		}
+-		.message-body pre {
++		.message-body pre,
++		.html-preview-body pre {
+ 			padding: 0.9rem 1rem;
+ 			border-radius: 12px;
+ 			background: #0f172a;
+ 			color: #e2e8f0;
+ 			overflow-x: auto;
+ 		}
+-		.message-body pre code {
++		.message-body pre code,
++		.html-preview-body pre code {
+ 			background: transparent;
+ 			padding: 0;
+ 			border-radius: 0;
+ 			color: inherit;
+ 		}
+-		.message-body blockquote {
++		.message-body blockquote,
++		.html-preview-body blockquote {
+ 			padding-left: 1rem;
+ 			border-left: 4px solid #93c5fd;
+ 			color: #334155;
+ 		}
+-		.message-body table {
++		.message-body table,
++		.html-preview-body table {
+ 			width: 100%;
+ 			border-collapse: collapse;
+ 			display: block;
+ 			overflow-x: auto;
+ 		}
+ 		.message-body th,
+-		.message-body td {
++		.message-body td,
++		.html-preview-body th,
++		.html-preview-body td {
+ 			border: 1px solid #bfdbfe;
+ 			padding: 0.55rem 0.7rem;
+ 			text-align: left;
+ 		}
+-		.message-body th { background: rgba(191, 219, 254, 0.45); }
+-		.message-body hr { border: 0; border-top: 1px solid #93c5fd; }
++		.message-body th,
++		.html-preview-body th { background: rgba(191, 219, 254, 0.45); }
++		.message-body hr,
++		.html-preview-body hr { border: 0; border-top: 1px solid #93c5fd; }
++		.message.assistant.html-preview { background: linear-gradient(180deg, #dbeafe 0%, #eef4ff 100%); }
++		.html-preview-card {
++			display: grid;
++			gap: 0.9rem;
++			padding: 1rem;
++			border-radius: 16px;
++			background: #ffffff;
++			border: 1px solid #bfdbfe;
++			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
++		}
++		.html-preview-meta {
++			display: flex;
++			align-items: center;
++			justify-content: space-between;
++			gap: 0.75rem;
++			padding-bottom: 0.75rem;
++			border-bottom: 1px solid #dbeafe;
++			color: #475569;
++			font-size: 0.85rem;
++		}
++		.html-preview-badge {
++			display: inline-flex;
++			align-items: center;
++			border-radius: 999px;
++			padding: 0.2rem 0.6rem;
++			background: #dbeafe;
++			color: #1d4ed8;
++			font-weight: 700;
++			letter-spacing: 0.04em;
++			text-transform: uppercase;
++		}
++		.html-preview-note { color: #64748b; }
+ 		.message-plain-text {
+ 			margin: 0;
+ 			white-space: pre-wrap;
+@@ -180,6 +235,14 @@
+ 		history.appendChild(article);
+ 	}
+ 
++	function normalizeResponseFormat(format) {
++		const normalizedFormat = String(format ?? '').trim().toLowerCase();
++		if (normalizedFormat === 'html' || normalizedFormat === 'text' || normalizedFormat === 'markdown') {
++			return normalizedFormat;
++		}
++		return 'markdown';
++	}
++
+ 	function renderMarkdown(markdown) {
+ 		if (!window.marked || !window.DOMPurify) {
+ 			throw new Error('Markdown rendering libraries are unavailable.');
+@@ -192,26 +255,78 @@
+ 		return window.DOMPurify.sanitize(renderedHtml);
+ 	}
+ 
++	function renderHtmlFragment(html) {
++		if (!window.DOMPurify) {
++			throw new Error('HTML rendering library is unavailable.');
++		}
++		return window.DOMPurify.sanitize(html ?? '');
++	}
++
++	function enhanceRenderedLinks(container) {
++		container.querySelectorAll('a[href]').forEach((link) => {
++			link.target = '_blank';
++			link.rel = 'noopener noreferrer';
++		});
++	}
++
+ 	function appendMarkdownMessage(role, markdown) {
+ 		const article = createMessageArticle(role);
+ 		const body = document.createElement('div');
+ 		body.className = 'message-body';
+ 		body.innerHTML = renderMarkdown(markdown);
+-		body.querySelectorAll('a[href]').forEach((link) => {
+-			link.target = '_blank';
+-			link.rel = 'noopener noreferrer';
+-		});
++		enhanceRenderedLinks(body);
+ 		article.appendChild(body);
+ 		history.appendChild(article);
+ 	}
+ 
+-	function appendAssistantMessage(text) {
++	function appendHtmlPreviewMessage(role, html) {
++		const article = createMessageArticle(role);
++		article.classList.add('html-preview');
++
++		const card = document.createElement('div');
++		card.className = 'html-preview-card';
++
++		const meta = document.createElement('div');
++		meta.className = 'html-preview-meta';
++
++		const badge = document.createElement('span');
++		badge.className = 'html-preview-badge';
++		badge.textContent = 'HTML preview';
++
++		const note = document.createElement('span');
++		note.className = 'html-preview-note';
++		note.textContent = 'Rendered from sanitized assistant HTML';
++
++		meta.append(badge, note);
++
++		const body = document.createElement('div');
++		body.className = 'html-preview-body';
++		body.innerHTML = renderHtmlFragment(html);
++		enhanceRenderedLinks(body);
++
++		card.append(meta, body);
++		article.appendChild(card);
++		history.appendChild(article);
++	}
++
++	function appendAssistantMessage(text, format) {
++		const responseFormat = normalizeResponseFormat(format);
+ 		try {
++			if (responseFormat === 'html') {
++				appendHtmlPreviewMessage('assistant', text);
++				return true;
++			}
++			if (responseFormat === 'text') {
++				appendPlainTextMessage('assistant', text);
++				return true;
++			}
+ 			appendMarkdownMessage('assistant', text);
+ 			return true;
+ 		} catch (error) {
+ 			appendPlainTextMessage('assistant', text);
+-			status.textContent = readErrorMessage(error, 'Unable to render the assistant response as Markdown.');
++			status.textContent = responseFormat === 'html'
++				? readErrorMessage(error, 'Unable to render the assistant response as HTML.')
++				: readErrorMessage(error, 'Unable to render the assistant response as Markdown.');
+ 			return false;
+ 		}
+ 	}
+@@ -292,6 +407,17 @@
+ 		return `${sign}${number.toFixed(2)}%`;
+ 	}
+ 
++	function formatQuoteDate(value) {
++		if (!value) {
++			return 'n/a';
++		}
++		const date = new Date(`${value}T00:00:00`);
++		if (Number.isNaN(date.getTime())) {
++			return String(value);
++		}
++		return date.toLocaleDateString();
++	}
++
+ 	function normalizeRecommendation(value) {
+ 		if (!value) {
+ 			return 'hold';
+@@ -342,7 +468,8 @@
+ 				li.appendChild(error);
+ 			} else {
+ 				const metrics = document.createElement('small');
+-				metrics.textContent = `Price: ${formatCurrency(item.price, item.currencyCode)} | Change: ${formatCurrency(item.change, item.currencyCode)} | Change %: ${formatPercent(item.changePercent)}`;
++				const quoteDateSuffix = item.quoteDate ? ` | Quote as of: ${formatQuoteDate(item.quoteDate)}` : '';
++				metrics.textContent = `Price: ${formatCurrency(item.price, item.currencyCode)} | Change: ${formatCurrency(item.change, item.currencyCode)} | Change %: ${formatPercent(item.changePercent)}${quoteDateSuffix}`;
+ 				const explanation = document.createElement('p');
+ 				explanation.textContent = item.explanation ?? '';
+ 				li.append(metrics, explanation);
+@@ -454,8 +581,8 @@
+ 			}
+ 
+ 			const data = await response.json();
+-			const renderedAsMarkdown = appendAssistantMessage(data.response ?? '');
+-			if (renderedAsMarkdown) {
++			const renderedAssistantMessage = appendAssistantMessage(data.response ?? '', data.format ?? 'markdown');
++			if (renderedAssistantMessage) {
+ 				status.textContent = '';
+ 			}
+ 		} catch (error) {

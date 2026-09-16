@@ -62,7 +62,7 @@ public class InMemoryChatMemory {
 	}
 
 	private Deque<Message> currentMessages() {
-		String sessionId = this.requestSessionContext.requireCurrentSessionId();
-		return this.messagesBySessionId.computeIfAbsent(sessionId, ignored -> new ArrayDeque<>());
+		String principalScope = this.requestSessionContext.requireCurrentPrincipalScope();
+		return this.messagesBySessionId.computeIfAbsent(principalScope, ignored -> new ArrayDeque<>());
 	}
 }

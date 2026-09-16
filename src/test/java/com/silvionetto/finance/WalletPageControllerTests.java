@@ -27,16 +27,21 @@ class WalletPageControllerTests {
 		assertThat(template, containsString("id=\"companyName\""));
 		assertThat(template, containsString("id=\"symbol\""));
 		assertThat(template, containsString("id=\"quantity\""));
+		assertThat(template, containsString("min=\"1\" step=\"1\""));
 		assertThat(template, containsString("id=\"averageCost\""));
 		assertThat(template, containsString("id=\"currencyCode\""));
 		assertThat(template, containsString("id=\"wallet-status\""));
 		assertThat(template, containsString("id=\"wallet-list\""));
 		assertThat(template, containsString("id=\"refresh-wallet\""));
 		assertThat(template, containsString("id=\"back-to-chat\""));
+		assertThat(template, containsString("id=\"open-password-page\""));
+		assertThat(template, containsString("function jsonHeaders()"));
 		assertThat(template, containsString("function loadWallet()"));
 		assertThat(template, containsString("function renderHoldings(holdings)"));
 		assertThat(template, containsString("function renderLoadErrorState(message)"));
 		assertThat(template, containsString("function updateSummary(holdings)"));
+		assertThat(template, containsString("Quantity must be a whole number greater than zero."));
+		assertThat(template, containsString("maximumFractionDigits: 0"));
 		assertThat(template, containsString("fetch('/api/wallet'"));
 		assertThat(template, containsString("Unable to load your wallet right now. Refresh and try again."));
 	}

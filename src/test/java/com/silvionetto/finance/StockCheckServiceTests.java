@@ -19,7 +19,7 @@ class StockCheckServiceTests {
 		RequestSessionContext requestSessionContext = new RequestSessionContext();
 		StockCheckService service = new StockCheckService(watchlistService, tickerLookupTool, engine, requestSessionContext);
 
-		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH)));
+		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH)));
 		when(tickerLookupTool.fetchQuote("AAPL")).thenReturn(new StockQuote("AAPL", new BigDecimal("200"), new BigDecimal("10"), new BigDecimal("6")));
 
 		StockCheckSnapshot snapshot = requestSessionContext.withSession("session-1", service::refreshLatestSnapshot);
@@ -37,7 +37,7 @@ class StockCheckServiceTests {
 		RequestSessionContext requestSessionContext = new RequestSessionContext();
 		StockCheckService service = new StockCheckService(watchlistService, tickerLookupTool, engine, requestSessionContext);
 
-		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH)));
+		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("user", "AAPL", "Apple Inc.", Instant.EPOCH, Instant.EPOCH)));
 		when(tickerLookupTool.fetchQuote("AAPL")).thenThrow(new IllegalStateException("Financial Modeling Prep API key is not configured"));
 
 		StockCheckSnapshot snapshot = requestSessionContext.withSession("session-1", service::refreshLatestSnapshot);
@@ -54,7 +54,7 @@ class StockCheckServiceTests {
 		RequestSessionContext requestSessionContext = new RequestSessionContext();
 		StockCheckService service = new StockCheckService(watchlistService, tickerLookupTool, engine, requestSessionContext);
 
-		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "ABN.AS", "ABN AMRO", Instant.EPOCH, Instant.EPOCH)));
+		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("user", "ABN.AS", "ABN AMRO", Instant.EPOCH, Instant.EPOCH)));
 		when(tickerLookupTool.fetchQuote("ABN.AS")).thenReturn(new StockQuote("ABN.AS", new BigDecimal("43.08"), new BigDecimal("-0.44"), new BigDecimal("-1.0101102941"), "EUR"));
 
 		StockCheckSnapshot snapshot = requestSessionContext.withSession("session-1", service::refreshLatestSnapshot);

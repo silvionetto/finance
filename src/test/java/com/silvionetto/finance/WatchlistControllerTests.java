@@ -21,7 +21,7 @@ class WatchlistControllerTests {
 	@Test
 	void listReturnsEntries() throws Exception {
 		WatchlistService watchlistService = mock(WatchlistService.class);
-		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("default", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH)));
+		when(watchlistService.listWatchlist()).thenReturn(List.of(new WatchlistEntry("user", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH)));
 		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService)).build();
 
 		mockMvc.perform(get("/api/watchlist"))
@@ -32,7 +32,7 @@ class WatchlistControllerTests {
 	@Test
 	void addAcceptsRequestBody() throws Exception {
 		WatchlistService watchlistService = mock(WatchlistService.class);
-		when(watchlistService.addToWatchlist(anyString())).thenReturn(new WatchlistEntry("default", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH));
+		when(watchlistService.addToWatchlist(anyString())).thenReturn(new WatchlistEntry("user", "AAPL", "Apple Inc", Instant.EPOCH, Instant.EPOCH));
 		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService)).build();
 
 		mockMvc.perform(post("/api/watchlist")

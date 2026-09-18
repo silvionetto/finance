@@ -15,18 +15,29 @@ public class StockCheckService {
 	private final TickerLookupTool tickerLookupTool;
 	private final StockRecommendationEngine recommendationEngine;
 	private final RequestSessionContext requestSessionContext;
+	private final MarketObservationRepository marketObservationRepository;
+	private final AuthenticatedUserContext authenticatedUserContext;
 	private final Map<String, StockCheckSnapshot> latestSnapshotsBySessionId = new HashMap<>();
 
 	public StockCheckService(
 		WatchlistService watchlistService,
 		TickerLookupTool tickerLookupTool,
 		StockRecommendationEngine recommendationEngine,
-		RequestSessionContext requestSessionContext
+		RequestSessionContext requestSessionContext,
+		MarketObservationRepository marketObservationRepository,
+		AuthenticatedUserContext authenticatedUserContext
 	) {
 		this.watchlistService = watchlistService;
 		this.tickerLookupTool = tickerLookupTool;
 		this.recommendationEngine = recommendationEngine;
 		this.requestSessionContext = requestSessionContext;
+		this.marketObservationRepository = marketObservationRepository;
+		this.authenticatedUserContext = authenticatedUserContext;
+	}
+
+	public StockCheckService(WatchlistService watchlistService, TickerLookupTool tickerLookupTool,
+			StockRecommendationEngine recommendationEngine, RequestSessionContext requestSessionContext) {
+		this(watchlistService, tickerLookupTool, recommendationEngine, requestSessionContext, null, null);
 	}
 
 	public synchronized StockCheckSnapshot getLatestSnapshot() {
@@ -46,6 +57,12 @@ public class StockCheckService {
 		for (WatchlistEntry entry : watchlistEntries) {
 			try {
 				StockQuote quote = this.tickerLookupTool.fetchQuote(entry.symbol());
+				if (this.marketObservationRepository != null && this.authenticatedUserContext != null) {
+					this.marketObservationRepository.save(new MarketObservation(null,
+						this.authenticatedUserContext.requireCurrentUsername(), quote.symbol(), quote.price(),
+						quote.change(), quote.changePercent(), quote.open(), quote.close(), quote.high(), quote.low(),
+						quote.volume(), quote.currencyCode(), quote.provider(), quote.observedAt()));
+				}
 				results.add(this.recommendationEngine.recommend(entry, quote));
 			} catch (RestClientException | IllegalArgumentException | IllegalStateException ex) {
 				results.add(StockCheckItemResult.failure(entry.symbol(), entry.companyName(), ex.getMessage()));

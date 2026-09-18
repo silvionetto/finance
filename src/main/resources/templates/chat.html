@@ -873,7 +873,10 @@
 
 			const details = document.createElement('div');
 			const symbol = document.createElement('strong');
-			symbol.textContent = entry.symbol;
+			const symbolLink = document.createElement('a');
+			symbolLink.href = `/stocks/${encodeURIComponent(entry.symbol)}`;
+			symbolLink.textContent = entry.symbol;
+			symbol.append(symbolLink);
 			const subtitle = document.createElement('small');
 			subtitle.textContent = formatWatchlistSubtitle(entry);
 			details.append(symbol, subtitle);

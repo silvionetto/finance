@@ -11,6 +11,8 @@ Spring Boot 4.1 application for a personal AI chat UI backed by Spring AI OpenAI
 - Provides actuator endpoints via Spring Boot Actuator
 - Integrates AI tools (e.g., date/time functions, ticker lookup, market prices, Alpaca real-time quotes) for function calling
 - Shows the latest watchlist stock-check snapshot with a simple buy / hold / sell recommendation
+- Persists immutable, authenticated-user-owned stock analyses and market observations
+- Provides watchlist-linked stock detail pages with on-demand comparison data
 
 ## Requirements
 
@@ -165,6 +167,11 @@ curl.exe -X POST http://localhost:8080/api/stock-check/refresh
 ```
 
 The response includes the latest price data, the recommendation, and a short explanation for each watchlist item.
+
+Each stock-check refresh also records the provider observation fields that are available. Open a watchlist symbol at
+`/stocks/{symbol}` to review immutable reports, create a new report, or load comparison data on demand. The analysis
+API is available at `GET /api/stocks/{symbol}/analyses`, `POST /api/stocks/{symbol}/analyses`, and
+`GET /api/stocks/{symbol}/comparison`.
 
 ## Build
 

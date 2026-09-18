@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:text="${entry.symbol() + ' analysis'}">Stock analysis</title>
+	<link rel="stylesheet" href="/css/workspace.css">
+	<style>main{max-width:1000px;margin:0 auto;padding:2rem}.card{background:#fff;border-radius:16px;padding:1.5rem;margin-top:1rem;box-shadow:0 8px 30px rgba(15,23,42,.08)}.analysis{white-space:pre-wrap;line-height:1.6;border-top:1px solid #e2e8f0;padding-top:1rem;margin-top:1rem}.actions{display:flex;gap:.75rem;align-items:center}.button{border:0;border-radius:999px;padding:.8rem 1.25rem;background:#2563eb;color:#fff;text-decoration:none;cursor:pointer}#status{color:#475569}</style>
+</head>
+<body>
+<nav th:replace="~{fragments/navigation :: workspaceNav('stock')}"></nav>
+<main>
+	<a href="/">Back to workspace</a>
+	<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+	<section class="card">
+		<h1 th:text="${entry.symbol()}">AAPL</h1>
+		<p th:text="${entry.companyName()}">Apple Inc.</p>
+		<div class="actions">
+			<button id="new-analysis" class="button" type="button">Create new analysis</button>
+			<span id="status" aria-live="polite"></span>
+		</div>
+	</section>
+	<section class="card">
+		<h2>Past analyses</h2>
+		<p th:if="${#lists.isEmpty(analyses)}">No analyses saved yet.</p>
+		<article class="analysis" th:each="analysis : ${analyses}">
+			<header><strong th:text="${#temporals.format(analysis.createdAt(), 'yyyy-MM-dd HH:mm')}">2026-09-18</strong></header>
+			<p th:text="${analysis.generatedOutput()}">Report</p>
+		</article>
+	</section>
+	<section class="card">
+		<h2>Comparison</h2>
+		<p>Load stored baselines and later market observations on demand.</p>
+		<button id="load-comparison" class="button" type="button">Load comparison data</button>
+		<pre id="comparison" hidden></pre>
+	</section>
+</main>
+<script th:inline="javascript">
+const symbol = /*[[${entry.symbol()}]]*/ 'AAPL';
+const status = document.getElementById('status');
+document.getElementById('new-analysis').addEventListener('click', async () => {
+ status.textContent = 'Generating...';
+ const csrf = document.querySelector('input[name="_csrf"]');
+ const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/analyses`, {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf?.value || ''}});
+ if (!response.ok) { status.textContent = await response.text(); return; }
+ window.location.reload();
+});
+document.getElementById('load-comparison').addEventListener('click', async () => {
+ const target = document.getElementById('comparison'); target.hidden = false; target.textContent = 'Loading...';
+ const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/comparison`);
+ target.textContent = response.ok ? JSON.stringify(await response.json(), null, 2) : await response.text();
+});
+</script>
+</body>
+</html>

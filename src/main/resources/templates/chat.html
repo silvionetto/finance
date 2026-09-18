@@ -4,6 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Finance Chat</title>
+	<link rel="stylesheet" href="/css/workspace.css">
 	<style>
 		:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
 		body { margin: 0; background: #f5f7fb; color: #1f2937; }
@@ -384,6 +385,7 @@
 <meta name="_csrf" th:content="${_csrf.token}">
 <meta name="_csrf_header" th:content="${_csrf.headerName}">
 <main>
+	<div th:replace="~{fragments/navigation :: workspaceNav('chat')}"></div>
 	<div id="chat-layout" class="layout" data-sidebar-collapsed="false">
 		<section class="card chat-card">
 			<div class="chat-header">
@@ -391,8 +393,6 @@
 					<h1>Chat with the AI API</h1>
 				</div>
 				<div class="chat-header-actions">
-					<a href="/wallet" id="open-wallet" class="button-link chat-secondary-action">Open wallet</a>
-					<a href="/account/password" id="open-password-page" class="button-link chat-secondary-action">Change password</a>
 					<button id="clear-chat" class="chat-secondary-action" type="button">New chat</button>
 				</div>
 			</div>

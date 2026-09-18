@@ -94,8 +94,7 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("id=\"sidebar-card\""));
 		assertThat(template, containsString("id=\"toggle-sidebar\""));
 		assertThat(template, containsString("id=\"chat-layout\""));
-		assertThat(template, containsString("id=\"open-wallet\""));
-		assertThat(template, containsString("href=\"/wallet\""));
+		assertThat(template, containsString("fragments/navigation"));
 		assertThat(template, containsString(".layout[data-sidebar-collapsed=\"true\"]"));
 		assertThat(template, containsString("const composerStorageKey = 'finance.composer.collapsed'"));
 		assertThat(template, containsString("function setComposerCollapsed(collapsed, options = {})"));
@@ -105,8 +104,23 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("layout.dataset.sidebarCollapsed = String(collapsed);"));
 		assertThat(template, containsString("meta name=\"_csrf\""));
 		assertThat(template, containsString("function jsonHeaders()"));
-		assertThat(template, containsString("href=\"/account/password\""));
 		assertTrue(template.indexOf("id=\"composer-main\"") < template.indexOf("id=\"thinking-indicator\""));
 		assertTrue(template.indexOf("id=\"thinking-indicator\"") < template.indexOf("id=\"chat-form\""));
+	}
+
+	@Test
+	void workspaceNavigationUsesSemanticResponsiveMenu() throws Exception {
+		String template = StreamUtils.copyToString(
+			new ClassPathResource("templates/fragments/navigation.html").getInputStream(),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(template, containsString("th:fragment=\"workspaceNav(activePage)\""));
+		assertThat(template, containsString("<nav"));
+		assertThat(template, containsString("aria-label=\"Workspace navigation\""));
+		assertThat(template, containsString("<details class=\"workspace-nav-mobile\">"));
+		assertThat(template, containsString("action=\"/logout\""));
+		assertThat(template, containsString("th:name=\"${_csrf.parameterName}\""));
+		assertThat(template, containsString("aria-current"));
 	}
 }

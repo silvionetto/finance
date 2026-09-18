@@ -16,6 +16,7 @@
 		<p th:text="${entry.companyName()}">Apple Inc.</p>
 		<div class="actions">
 			<button id="new-analysis" class="button" type="button">Create new analysis</button>
+			<button id="new-prediction" class="button" type="button">Create prediction</button>
 			<span id="status" aria-live="polite"></span>
 		</div>
 	</section>
@@ -23,7 +24,7 @@
 		<h2>Past analyses</h2>
 		<p th:if="${#lists.isEmpty(analyses)}">No analyses saved yet.</p>
 		<article class="analysis" th:each="analysis : ${analyses}">
-			<header><strong th:text="${#temporals.format(analysis.createdAt(), 'yyyy-MM-dd HH:mm')}">2026-09-18</strong></header>
+			<header><strong th:text="${analysis.type() + ' - ' + #temporals.format(analysis.createdAt(), 'yyyy-MM-dd HH:mm')}">ANALYSIS - 2026-09-18</strong></header>
 			<p th:text="${analysis.generatedOutput()}">Report</p>
 		</article>
 	</section>
@@ -41,6 +42,13 @@ document.getElementById('new-analysis').addEventListener('click', async () => {
  status.textContent = 'Generating...';
  const csrf = document.querySelector('input[name="_csrf"]');
  const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/analyses`, {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf?.value || ''}});
+ if (!response.ok) { status.textContent = await response.text(); return; }
+ window.location.reload();
+});
+document.getElementById('new-prediction').addEventListener('click', async () => {
+ status.textContent = 'Generating prediction...';
+ const csrf = document.querySelector('input[name="_csrf"]');
+ const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/predictions`, {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf?.value || ''}});
  if (!response.ok) { status.textContent = await response.text(); return; }
  window.location.reload();
 });

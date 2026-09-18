@@ -27,11 +27,21 @@ public class StockAnalysisService {
 	}
 
 	public StockAnalysis create(String symbol) {
+		return create(symbol, StockAnalysisType.ANALYSIS);
+	}
+
+	public StockAnalysis createPrediction(String symbol) {
+		return create(symbol, StockAnalysisType.PREDICTION);
+	}
+
+	private StockAnalysis create(String symbol, StockAnalysisType type) {
 		String normalized = normalize(symbol);
 		WatchlistEntry entry = findWatchlistEntry(normalized);
 		StockQuote quote = this.tickerLookupTool.fetchQuote(normalized);
 		String output = this.chatClient.prompt()
-			.user("Analyze " + normalized + " for an investor. Use the supplied current market observation, explain risks and scenarios, and clearly state that this is not financial advice.\n"
+			.user((type == StockAnalysisType.PREDICTION
+				? "Create a forward-looking stock prediction for " + normalized + ". Give explicit forecast scenarios, assumptions, and an expected direction over the next few business days. Clearly label uncertainty and state that this is not financial advice.\n"
+				: "Analyze " + normalized + " for an investor. Use the supplied current market observation, explain risks and scenarios, and clearly state that this is not financial advice.\n")
 				+ "Current observation: price=" + quote.price() + ", change=" + quote.change()
 				+ ", changePercent=" + quote.changePercent() + ", currency=" + quote.currencyCode())
 			.call().content();
@@ -39,7 +49,7 @@ public class StockAnalysisService {
 			throw new IllegalStateException("AI analysis returned no output");
 		}
 		return this.analysisRepository.save(this.authenticatedUserContext.requireCurrentUsername(), normalized,
-			entry.companyName(), output, quote.price(), quote.change(), quote.changePercent(), quote.currencyCode(), Instant.now());
+			entry.companyName(), type, output, quote.price(), quote.change(), quote.changePercent(), quote.currencyCode(), Instant.now());
 	}
 
 	public List<StockAnalysis> list(String symbol) {

@@ -4,6 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Portfolio Wallet</title>
+	<link rel="stylesheet" href="/css/workspace.css">
 	<style>
 		:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
 		body { margin: 0; background: #f5f7fb; color: #1f2937; }
@@ -96,15 +97,12 @@
 	<meta name="_csrf" th:content="${_csrf.token}">
 	<meta name="_csrf_header" th:content="${_csrf.headerName}">
 <main>
+	<div th:replace="~{fragments/navigation :: workspaceNav('wallet')}"></div>
 	<div class="page-shell">
 		<section class="card page-header">
 			<div>
 				<h1>Portfolio wallet</h1>
 				<p>Register the companies you own with quantity and average cost, then keep a clean holdings list separate from the chat watchlist.</p>
-			</div>
-			<div class="actions">
-				<a href="/" class="button-link button-secondary" id="back-to-chat">Back to chat</a>
-				<a href="/account/password" class="button-link button-secondary" id="open-password-page">Change password</a>
 			</div>
 		</section>
 		<div class="page-layout">
@@ -340,6 +338,9 @@
 			removeButton.className = 'wallet-remove';
 			removeButton.textContent = 'Remove';
 			removeButton.addEventListener('click', async () => {
+				if (!window.confirm(`Remove ${holding.symbol} from your wallet?`)) {
+					return;
+				}
 				removeButton.disabled = true;
 				walletStatus.textContent = `Removing ${holding.symbol}...`;
 				try {

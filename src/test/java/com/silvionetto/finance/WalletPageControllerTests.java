@@ -33,8 +33,8 @@ class WalletPageControllerTests {
 		assertThat(template, containsString("id=\"wallet-status\""));
 		assertThat(template, containsString("id=\"wallet-list\""));
 		assertThat(template, containsString("id=\"refresh-wallet\""));
-		assertThat(template, containsString("id=\"back-to-chat\""));
-		assertThat(template, containsString("id=\"open-password-page\""));
+		assertThat(template, containsString("workspace.css"));
+		assertThat(template, containsString("fragments/navigation"));
 		assertThat(template, containsString("function jsonHeaders()"));
 		assertThat(template, containsString("function loadWallet()"));
 		assertThat(template, containsString("function renderHoldings(holdings)"));

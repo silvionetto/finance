@@ -1,0 +1,135 @@
+.workspace-nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1.5rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid #dbe4f0;
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.92);
+	box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+}
+
+.workspace-brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.65rem;
+	color: #0f172a;
+	font-weight: 750;
+	letter-spacing: -0.01em;
+	text-decoration: none;
+}
+
+.workspace-brand-mark {
+	display: grid;
+	place-items: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 10px;
+	background: linear-gradient(135deg, #60a5fa, #2563eb);
+	color: #eff6ff;
+	font-size: 0.75rem;
+	font-weight: 800;
+}
+
+.workspace-nav-menu {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.workspace-nav-link,
+.workspace-nav-logout,
+.workspace-nav-summary {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 2.35rem;
+	padding: 0.5rem 0.8rem;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: #475569;
+	font: inherit;
+	font-size: 0.92rem;
+	font-weight: 650;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.workspace-nav-link:hover,
+.workspace-nav-link:focus-visible,
+.workspace-nav-logout:hover,
+.workspace-nav-logout:focus-visible,
+.workspace-nav-summary:hover,
+.workspace-nav-summary:focus-visible {
+	background: #eff6ff;
+	color: #1d4ed8;
+}
+
+.workspace-nav-link[aria-current="page"] {
+	background: #dbeafe;
+	color: #1d4ed8;
+}
+
+.workspace-nav-logout {
+	color: #b91c1c;
+}
+
+.workspace-nav-mobile {
+	display: none;
+}
+
+.workspace-nav-summary {
+	list-style: none;
+}
+
+.workspace-nav-summary::-webkit-details-marker {
+	display: none;
+}
+
+.workspace-nav-summary::after {
+	content: "▾";
+	margin-left: 0.45rem;
+	font-size: 0.8em;
+}
+
+.workspace-nav-mobile[open] .workspace-nav-summary::after {
+	content: "▴";
+}
+
+@media (max-width: 640px) {
+	.workspace-nav {
+		align-items: flex-start;
+	}
+
+	.workspace-nav-menu {
+		display: none;
+	}
+
+	.workspace-nav-mobile {
+		display: block;
+		position: relative;
+	}
+
+	.workspace-nav-mobile .workspace-nav-menu {
+		position: absolute;
+		z-index: 5;
+		top: calc(100% + 0.45rem);
+		right: 0;
+		display: grid;
+		min-width: 11rem;
+		padding: 0.4rem;
+		border: 1px solid #dbe4f0;
+		border-radius: 12px;
+		background: #ffffff;
+		box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+	}
+
+	.workspace-nav-mobile .workspace-nav-link,
+	.workspace-nav-mobile .workspace-nav-logout {
+		justify-content: flex-start;
+		width: 100%;
+	}
+}

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS stock_analyses (
     owner_id VARCHAR(100) NOT NULL,
     symbol VARCHAR(20) NOT NULL,
     company_name VARCHAR(255),
+    analysis_type VARCHAR(20) NOT NULL DEFAULT 'ANALYSIS',
     generated_output TEXT NOT NULL,
     baseline_price NUMERIC(19, 6),
     baseline_change NUMERIC(19, 6),

@@ -25,4 +25,19 @@ class StockAnalysisControllerTests {
 			.andExpect(jsonPath("$[0].generatedOutput").value("Immutable report"))
 			.andExpect(jsonPath("$[0].ownerId").value("alice"));
 	}
+
+	@Test
+	void createsPrediction() throws Exception {
+		StockAnalysisService service = mock(StockAnalysisService.class);
+		when(service.createPrediction("AAPL")).thenReturn(new StockAnalysis(2L, "alice", "AAPL", "Apple",
+			StockAnalysisType.PREDICTION, "Forecast report", null, null, null, "USD",
+			Instant.parse("2026-09-18T00:00:00Z")));
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new StockAnalysisController(service)).build();
+
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+				.post("/api/stocks/AAPL/predictions"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.type").value("PREDICTION"))
+			.andExpect(jsonPath("$.generatedOutput").value("Forecast report"));
+	}
 }

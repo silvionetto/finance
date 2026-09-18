@@ -26,6 +26,11 @@ public class StockAnalysisController {
 		return this.stockAnalysisService.create(symbol);
 	}
 
+	@PostMapping("/{symbol}/predictions")
+	public StockAnalysis createPrediction(@PathVariable String symbol) {
+		return this.stockAnalysisService.createPrediction(symbol);
+	}
+
 	@GetMapping("/{symbol}/comparison")
 	public StockAnalysisService.StockComparison comparison(@PathVariable String symbol) {
 		return this.stockAnalysisService.comparison(symbol);

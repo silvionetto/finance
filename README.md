@@ -224,6 +224,24 @@ Response:
 { "response": "..." }
 ```
 
+### `POST /api/stock-projection`
+
+Generate and save a probabilistic stock projection for a ticker using the prompt in `docs/prompts/projection.md`.
+
+Request:
+
+```json
+{ "ticker": "AAPL" }
+```
+
+Response:
+
+```json
+{ "id": 1, "ownerId": "alice", "tickerSymbol": "AAPL", "content": "...", "createdAt": "2026-09-18T00:00:00Z" }
+```
+
+The generated preview is persisted in `stock_projection_previews` for later retrieval via `GET /api/stock-projection` or `GET /api/stock-projection/latest?ticker=AAPL`.
+
 ### `DELETE /api/chat/memory`
 
 Clear the conversation history and start a fresh session.

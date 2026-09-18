@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 
@@ -19,6 +20,7 @@ public class StockCheckService {
 	private final AuthenticatedUserContext authenticatedUserContext;
 	private final Map<String, StockCheckSnapshot> latestSnapshotsBySessionId = new HashMap<>();
 
+	@Autowired
 	public StockCheckService(
 		WatchlistService watchlistService,
 		TickerLookupTool tickerLookupTool,

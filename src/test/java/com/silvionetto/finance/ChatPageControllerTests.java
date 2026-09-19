@@ -79,14 +79,9 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("id=\"composer-shell\""));
 		assertThat(template, containsString("id=\"composer-compact-bar\""));
 		assertThat(template, containsString("id=\"toggle-composer\""));
-		assertThat(template, containsString("id=\"thinking-indicator\""));
-		assertThat(template, containsString("class=\"thinking-indicator\""));
-		assertThat(template, containsString("id=\"thinking-message\""));
-		assertThat(template, containsString("id=\"thinking-elapsed\""));
-		assertThat(template, containsString("class=\"thinking-progress\""));
-		assertThat(template, containsString("class=\"thinking-progress-bar\""));
+		assertThat(template, containsString("fragments/loading-indicator :: loadingIndicator"));
+		assertThat(template, containsString("/js/loading-indicator.js"));
 		assertThat(template, containsString("function scrollHistoryToLatest(force = false)"));
-		assertThat(template, containsString("const thinkingMessages = ["));
 		assertThat(template, containsString("function startThinkingState()"));
 		assertThat(template, containsString("function stopThinkingState(options = {})"));
 		assertThat(template, containsString("function updateThinkingState()"));
@@ -104,8 +99,32 @@ class ChatPageControllerTests {
 		assertThat(template, containsString("layout.dataset.sidebarCollapsed = String(collapsed);"));
 		assertThat(template, containsString("meta name=\"_csrf\""));
 		assertThat(template, containsString("function jsonHeaders()"));
-		assertTrue(template.indexOf("id=\"composer-main\"") < template.indexOf("id=\"thinking-indicator\""));
-		assertTrue(template.indexOf("id=\"thinking-indicator\"") < template.indexOf("id=\"chat-form\""));
+		assertTrue(template.indexOf("id=\"composer-main\"") < template.indexOf("fragments/loading-indicator"));
+		assertTrue(template.indexOf("fragments/loading-indicator") < template.indexOf("id=\"chat-form\""));
+	}
+
+	@Test
+	void sharedLoadingIndicatorIsGenericAndStockGenerationCleansUp() throws Exception {
+		String indicator = StreamUtils.copyToString(
+			new ClassPathResource("templates/fragments/loading-indicator.html").getInputStream(),
+			StandardCharsets.UTF_8
+		);
+		String stock = StreamUtils.copyToString(
+			new ClassPathResource("templates/stock.html").getInputStream(),
+			StandardCharsets.UTF_8
+		);
+
+		assertThat(indicator, containsString("class=\"thinking-indicator\""));
+		assertThat(indicator, containsString("Working"));
+		assertThat(indicator, containsString("no model reasoning or tool details are shown"));
+		assertThat(stock, containsString("fragments/loading-indicator :: loadingIndicator"));
+		assertThat(stock, containsString("/js/loading-indicator.js"));
+		assertThat(stock, containsString("generationButtons.forEach((button) => { button.disabled = true; });"));
+		assertThat(stock, containsString("financeLoadingIndicator.start({ statusElement: status });"));
+		assertThat(stock, containsString("financeLoadingIndicator.stop();"));
+		assertThat(stock, containsString("window.clearTimeout(timeoutId);"));
+		assertThat(stock, containsString("await response.json();"));
+		assertTrue(stock.indexOf("await response.json();") < stock.indexOf("window.location.reload();"));
 	}
 
 	@Test

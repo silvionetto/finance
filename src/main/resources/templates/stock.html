@@ -4,7 +4,28 @@
 	<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 	<title th:text="${entry.symbol() + ' analysis'}">Stock analysis</title>
 	<link rel="stylesheet" href="/css/workspace.css">
-	<style>main{max-width:1000px;margin:0 auto;padding:2rem}.card{background:#fff;border-radius:16px;padding:1.5rem;margin-top:1rem;box-shadow:0 8px 30px rgba(15,23,42,.08)}.analysis{white-space:pre-wrap;line-height:1.6;border-top:1px solid #e2e8f0;padding-top:1rem;margin-top:1rem}.actions{display:flex;gap:.75rem;align-items:center}.button{border:0;border-radius:999px;padding:.8rem 1.25rem;background:#2563eb;color:#fff;text-decoration:none;cursor:pointer}#status{color:#475569}</style>
+	<style>
+		main{max-width:1000px;margin:0 auto;padding:2rem}
+		.card{background:#fff;border-radius:16px;padding:1.5rem;margin-top:1rem;box-shadow:0 8px 30px rgba(15,23,42,.08)}
+		.analysis{border-top:1px solid #e2e8f0;padding-top:1rem;margin-top:1rem}
+		.analysis-markdown{display:grid;gap:.75rem;line-height:1.5}
+		.analysis-markdown>:first-child{margin-top:0}
+		.analysis-markdown>:last-child{margin-bottom:0}
+		.analysis-markdown p,.analysis-markdown ul,.analysis-markdown ol,.analysis-markdown blockquote,.analysis-markdown pre,.analysis-markdown table,.analysis-markdown hr{margin:0}
+		.analysis-markdown ul,.analysis-markdown ol{padding-left:1.5rem}
+		.analysis-markdown li+li{margin-top:.25rem}
+		.analysis-markdown a{color:#1d4ed8}
+		.analysis-markdown code{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;background:rgba(15,23,42,.08);border-radius:6px;padding:.15rem .35rem;font-size:.95em}
+		.analysis-markdown pre{padding:.9rem 1rem;border-radius:12px;background:#0f172a;color:#e2e8f0;overflow-x:auto}
+		.analysis-markdown pre code{background:transparent;padding:0;border-radius:0;color:inherit}
+		.analysis-markdown blockquote{padding-left:1rem;border-left:4px solid #93c5fd;color:#334155}
+		.analysis-markdown table{width:100%;border-collapse:collapse;display:block;overflow-x:auto}
+		.analysis-markdown th,.analysis-markdown td{border:1px solid #bfdbfe;padding:.55rem .7rem;text-align:left}
+		.analysis-markdown th{background:rgba(191,219,254,.45)}
+		.analysis-markdown hr{border:0;border-top:1px solid #93c5fd}
+		.analysis-plain-text{margin:0;white-space:pre-wrap;word-break:break-word}
+		.actions{display:flex;gap:.75rem;align-items:center}.button{border:0;border-radius:999px;padding:.8rem 1.25rem;background:#2563eb;color:#fff;text-decoration:none;cursor:pointer}#status{color:#475569}
+	</style>
 </head>
 <body>
 <nav th:replace="~{fragments/navigation :: workspaceNav('stock')}"></nav>
@@ -26,7 +47,9 @@
 		<p th:if="${#lists.isEmpty(analyses)}">No analyses saved yet.</p>
 		<article class="analysis" th:each="analysis : ${analyses}">
 			<header><strong th:text="${analysis.type() + ' - ' + #temporals.format(analysis.createdAt(), 'yyyy-MM-dd HH:mm')}">ANALYSIS - 2026-09-18</strong></header>
-			<p th:text="${analysis.generatedOutput()}">Report</p>
+			<div class="analysis-markdown" th:attr="data-markdown=${analysis.generatedOutput()}">
+				<pre class="analysis-plain-text" th:text="${analysis.generatedOutput()}">Report</pre>
+			</div>
 		</article>
 	</section>
 	<section class="card">
@@ -36,6 +59,8 @@
 		<pre id="comparison" hidden></pre>
 	</section>
 </main>
+<script src="/webjars/dompurify/3.2.6/dist/purify.min.js"></script>
+<script src="/webjars/marked/15.0.12/lib/marked.umd.js"></script>
 <script src="/js/loading-indicator.js"></script>
 <script th:inline="javascript">
 const symbol = /*[[${entry.symbol()}]]*/ 'AAPL';
@@ -44,6 +69,35 @@ const analysisButton = document.getElementById('new-analysis');
 const predictionButton = document.getElementById('new-prediction');
 const generationButtons = [analysisButton, predictionButton];
 const requestTimeoutMilliseconds = 120000;
+
+function renderMarkdown(markdown) {
+	if (!window.marked || !window.DOMPurify) {
+		throw new Error('Markdown rendering libraries are unavailable.');
+	}
+	return window.DOMPurify.sanitize(window.marked.parse(markdown ?? '', {
+		gfm: true,
+		breaks: true
+	}));
+}
+
+function renderSavedResults() {
+	document.querySelectorAll('.analysis-markdown[data-markdown]').forEach((container) => {
+		const markdown = container.dataset.markdown ?? '';
+		try {
+			container.innerHTML = renderMarkdown(markdown);
+			container.querySelectorAll('a[href]').forEach((link) => {
+				link.target = '_blank';
+				link.rel = 'noopener noreferrer';
+			});
+		} catch (error) {
+			container.replaceChildren();
+			const fallback = document.createElement('pre');
+			fallback.className = 'analysis-plain-text';
+			fallback.textContent = markdown;
+			container.appendChild(fallback);
+		}
+	});
+}
 
 async function generateStockResult(path) {
 	const csrf = document.querySelector('input[name="_csrf"]');
@@ -80,6 +134,8 @@ document.getElementById('load-comparison').addEventListener('click', async () =>
  const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/comparison`);
  target.textContent = response.ok ? JSON.stringify(await response.json(), null, 2) : await response.text();
 });
+
+renderSavedResults();
 </script>
 </body>
 </html>

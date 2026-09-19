@@ -19,6 +19,7 @@
 			<button id="new-prediction" class="button" type="button">Create prediction</button>
 			<span id="status" aria-live="polite"></span>
 		</div>
+		<div th:replace="~{fragments/loading-indicator :: loadingIndicator}"></div>
 	</section>
 	<section class="card">
 		<h2>Past analyses</h2>
@@ -35,23 +36,45 @@
 		<pre id="comparison" hidden></pre>
 	</section>
 </main>
+<script src="/js/loading-indicator.js"></script>
 <script th:inline="javascript">
 const symbol = /*[[${entry.symbol()}]]*/ 'AAPL';
 const status = document.getElementById('status');
-document.getElementById('new-analysis').addEventListener('click', async () => {
- status.textContent = 'Generating...';
- const csrf = document.querySelector('input[name="_csrf"]');
- const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/analyses`, {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf?.value || ''}});
- if (!response.ok) { status.textContent = await response.text(); return; }
- window.location.reload();
-});
-document.getElementById('new-prediction').addEventListener('click', async () => {
- status.textContent = 'Generating prediction...';
- const csrf = document.querySelector('input[name="_csrf"]');
- const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/predictions`, {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf?.value || ''}});
- if (!response.ok) { status.textContent = await response.text(); return; }
- window.location.reload();
-});
+const analysisButton = document.getElementById('new-analysis');
+const predictionButton = document.getElementById('new-prediction');
+const generationButtons = [analysisButton, predictionButton];
+const requestTimeoutMilliseconds = 120000;
+
+async function generateStockResult(path) {
+	const csrf = document.querySelector('input[name="_csrf"]');
+	const controller = new AbortController();
+	const timeoutId = window.setTimeout(() => controller.abort(), requestTimeoutMilliseconds);
+	financeLoadingIndicator.start({ statusElement: status });
+	generationButtons.forEach((button) => { button.disabled = true; });
+	try {
+		const response = await fetch(path, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf?.value || ''},
+			signal: controller.signal
+		});
+		if (!response.ok) {
+			throw new Error(`Request failed with status ${response.status}`);
+		}
+		await response.json();
+		window.location.reload();
+	} catch (error) {
+		status.textContent = error?.name === 'AbortError'
+			? 'The request took too long. Please try again.'
+			: 'Unable to generate the requested stock result. Please try again.';
+	} finally {
+		window.clearTimeout(timeoutId);
+		financeLoadingIndicator.stop();
+		generationButtons.forEach((button) => { button.disabled = false; });
+	}
+}
+
+analysisButton.addEventListener('click', () => generateStockResult(`/api/stocks/${encodeURIComponent(symbol)}/analyses`));
+predictionButton.addEventListener('click', () => generateStockResult(`/api/stocks/${encodeURIComponent(symbol)}/predictions`));
 document.getElementById('load-comparison').addEventListener('click', async () => {
  const target = document.getElementById('comparison'); target.hidden = false; target.textContent = 'Loading...';
  const response = await fetch(`/api/stocks/${encodeURIComponent(symbol)}/comparison`);

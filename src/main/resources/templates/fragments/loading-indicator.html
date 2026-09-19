@@ -1,0 +1,11 @@
+<section th:fragment="loadingIndicator" id="thinking-indicator" class="thinking-indicator" aria-live="polite" aria-atomic="true" hidden>
+	<div class="thinking-indicator-header">
+		<span class="thinking-badge">Working</span>
+		<span id="thinking-elapsed" class="thinking-elapsed">Starting...</span>
+	</div>
+	<div class="thinking-progress" aria-hidden="true">
+		<div class="thinking-progress-bar"></div>
+	</div>
+	<p id="thinking-message" class="thinking-message">Working on your request...</p>
+	<p class="thinking-hint">This is a loading status; no model reasoning or tool details are shown.</p>
+</section>

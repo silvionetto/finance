@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "${AZURE_ENV_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "dbAdminLogin": {
+      "value": "${DB_ADMIN_LOGIN}"
+    },
+    "dbAdminPassword": {
+      "value": "${DB_ADMIN_PASSWORD}"
+    },
+    "openAiApiKey": {
+      "value": "${OPENAI_API_KEY}"
+    },
+    "bootstrapAdminPassword": {
+      "value": "${FINANCE_BOOTSTRAP_ADMIN_PASSWORD}"
+    },
+    "bootstrapUserPassword": {
+      "value": "${FINANCE_BOOTSTRAP_USER_PASSWORD}"
+    },
+    "polygonApiKey": {
+      "value": "${POLYGON_API_KEY}"
+    },
+    "alpacaApiKeyId": {
+      "value": "${ALPACA_API_KEY_ID}"
+    },
+    "alpacaApiSecretKey": {
+      "value": "${ALPACA_API_SECRET_KEY}"
+    },
+    "fmpApiKey": {
+      "value": "${FMP_API_KEY}"
+    },
+    "brapiApiToken": {
+      "value": "${BRAPI_API_TOKEN}"
+    },
+    "euronextAuthKey": {
+      "value": "${EURONEXT_AUTH_KEY}"
+    }
+  }
+}

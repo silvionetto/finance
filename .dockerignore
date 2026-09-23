@@ -1,0 +1,10 @@
+.git
+.github
+.gradle
+.idea
+.azure
+build
+.env
+*.patch
+README.md
+docs

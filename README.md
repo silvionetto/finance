@@ -185,6 +185,71 @@ gradlew.bat build
 gradlew.bat test
 ```
 
+## Azure deployment
+
+The repository now includes Azure deployment scaffolding for **Azure Developer CLI (azd)** with:
+
+- **Azure App Service (Linux, custom container)** for the Spring Boot web app
+- **Azure Container Registry** for the image
+- **Azure Database for PostgreSQL Flexible Server** for application data
+- **Key Vault** for required application secrets
+- **Application Insights + Log Analytics** for monitoring
+
+### Why App Service with a container?
+
+The application currently targets **Java 25** in `build.gradle`. The included Azure plan uses a custom container so the deployed runtime matches the app's current toolchain.
+
+### Files
+
+- `azure.yaml`
+- `Dockerfile`
+- `.dockerignore`
+- `infra/main.bicep`
+- `infra/main.parameters.json`
+- `.azure/deployment-plan.md`
+
+### Required local tools
+
+- Azure CLI
+- Azure Developer CLI (`azd`)
+- Docker
+
+### Required azd environment values
+
+Set these before provisioning:
+
+```powershell
+azd env set AZURE_LOCATION westeurope
+azd env set DB_ADMIN_LOGIN <postgres-admin-login>
+azd env set DB_ADMIN_PASSWORD <postgres-admin-password>
+azd env set OPENAI_API_KEY <openai-compatible-api-key>
+azd env set FINANCE_BOOTSTRAP_ADMIN_PASSWORD <admin-password>
+azd env set FINANCE_BOOTSTRAP_USER_PASSWORD <user-password>
+```
+
+Optional provider credentials:
+
+```powershell
+azd env set POLYGON_API_KEY <polygon-api-key>
+azd env set ALPACA_API_KEY_ID <alpaca-key-id>
+azd env set ALPACA_API_SECRET_KEY <alpaca-secret>
+azd env set FMP_API_KEY <fmp-api-key>
+azd env set BRAPI_API_TOKEN <brapi-token>
+azd env set EURONEXT_AUTH_KEY <euronext-auth-key>
+```
+
+### Provision and deploy
+
+```powershell
+azd env new finance-dev
+azd env set AZURE_SUBSCRIPTION_ID <your-subscription-id>
+azd env set AZURE_LOCATION westeurope
+azd provision
+azd deploy
+```
+
+The deployment provisions infrastructure first and then builds/pushes the Docker image for the `finance` service into Azure Container Registry.
+
 ## Automated releases
 
 The repository now includes a GitHub Actions workflow at `.github/workflows/release.yml` that runs on every push to `main`.

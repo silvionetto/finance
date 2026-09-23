@@ -1,0 +1,10 @@
+name: finance
+metadata:
+  template: finance-azure-appservice
+
+services:
+  finance:
+    project: .
+    host: appservice
+    docker:
+      path: ./Dockerfile

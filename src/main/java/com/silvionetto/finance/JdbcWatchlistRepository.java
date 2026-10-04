@@ -21,7 +21,7 @@ public class JdbcWatchlistRepository implements WatchlistRepository {
 	@Override
 	public List<WatchlistEntry> findAllByOwnerId(String ownerId) {
 		return this.jdbcTemplate.query(
-			"SELECT owner_id, symbol, company_name, created_at, updated_at FROM watchlist_entries WHERE owner_id = ? ORDER BY symbol",
+			"SELECT owner_id, symbol, company_name, company_description, created_at, updated_at FROM watchlist_entries WHERE owner_id = ? ORDER BY symbol",
 			this::mapRow,
 			ownerId
 		);
@@ -30,7 +30,7 @@ public class JdbcWatchlistRepository implements WatchlistRepository {
 	@Override
 	public Optional<WatchlistEntry> findByOwnerIdAndSymbol(String ownerId, String symbol) {
 		List<WatchlistEntry> results = this.jdbcTemplate.query(
-			"SELECT owner_id, symbol, company_name, created_at, updated_at FROM watchlist_entries WHERE owner_id = ? AND symbol = ?",
+			"SELECT owner_id, symbol, company_name, company_description, created_at, updated_at FROM watchlist_entries WHERE owner_id = ? AND symbol = ?",
 			this::mapRow,
 			ownerId,
 			symbol
@@ -39,14 +39,28 @@ public class JdbcWatchlistRepository implements WatchlistRepository {
 	}
 
 	@Override
-	public WatchlistEntry save(String ownerId, String symbol, String companyName, Instant now) {
+	public WatchlistEntry save(String ownerId, String symbol, String companyName, String companyDescription, Instant now) {
 		this.jdbcTemplate.update(
-			"INSERT INTO watchlist_entries (owner_id, symbol, company_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (owner_id, symbol) DO UPDATE SET company_name = EXCLUDED.company_name, updated_at = EXCLUDED.updated_at",
+			"INSERT INTO watchlist_entries (owner_id, symbol, company_name, company_description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (owner_id, symbol) DO UPDATE SET company_name = EXCLUDED.company_name, company_description = EXCLUDED.company_description, updated_at = EXCLUDED.updated_at",
 			ownerId,
 			symbol,
 			companyName,
+			companyDescription,
 			Timestamp.from(now),
 			Timestamp.from(now)
+		);
+		return findByOwnerIdAndSymbol(ownerId, symbol).orElseThrow();
+	}
+
+	@Override
+	public WatchlistEntry updateCompanyDetails(String ownerId, String symbol, String companyName, String companyDescription, Instant now) {
+		this.jdbcTemplate.update(
+			"UPDATE watchlist_entries SET company_name = ?, company_description = ?, updated_at = ? WHERE owner_id = ? AND symbol = ?",
+			companyName,
+			companyDescription,
+			Timestamp.from(now),
+			ownerId,
+			symbol
 		);
 		return findByOwnerIdAndSymbol(ownerId, symbol).orElseThrow();
 	}
@@ -65,6 +79,7 @@ public class JdbcWatchlistRepository implements WatchlistRepository {
 			rs.getString("owner_id"),
 			rs.getString("symbol"),
 			rs.getString("company_name"),
+			rs.getString("company_description"),
 			rs.getTimestamp("created_at").toInstant(),
 			rs.getTimestamp("updated_at").toInstant()
 		);

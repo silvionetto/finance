@@ -57,4 +57,20 @@ class StockCompanyOverviewServiceTests {
 		assertThat(overview.market()).isNull();
 		assertThat(overview.description()).isNull();
 	}
+
+	@Test
+	void keepsPersistedCompanyDetailsWhenLiveProfileLookupFails() {
+		CompanyTickerCatalog catalog = mock(CompanyTickerCatalog.class);
+		CompanyProfileService profileService = mock(CompanyProfileService.class);
+		when(catalog.findByTickerSymbol("AAPL")).thenReturn(Optional.empty());
+		when(profileService.findProfile("AAPL")).thenThrow(new IllegalStateException("Provider unavailable"));
+		StockCompanyOverviewService service = new StockCompanyOverviewService(catalog, profileService);
+
+		StockCompanyOverview overview = service.build(new WatchlistEntry(
+			"owner", "AAPL", "Apple Inc.", "Stored company description.", Instant.EPOCH, Instant.EPOCH
+		));
+
+		assertThat(overview.companyName()).isEqualTo("Apple Inc.");
+		assertThat(overview.description()).isEqualTo("Stored company description.");
+	}
 }

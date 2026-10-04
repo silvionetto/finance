@@ -65,4 +65,35 @@ class CompanyProfileServiceTests {
 
 		assertThat(service.findProfile("AAPL")).isEmpty();
 	}
+
+	@Test
+	void fallsBackToFinancialModelingPrepWhenBrapiProfileHasNoDescription() {
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo("https://financialmodelingprep.com/stable/profile?symbol=WEGE3&apikey=test-key"))
+			.andRespond(withSuccess("""
+				[{
+				  "companyName": "WEG S.A.",
+				  "description": "Manufactures electric motors and industrial automation products.",
+				  "sector": "Industrials",
+				  "industry": "Electrical Equipment"
+				}]
+				""", MediaType.APPLICATION_JSON));
+		BrapiMarketDataTool brapi = mock(BrapiMarketDataTool.class);
+		when(brapi.isConfigured()).thenReturn(true);
+		when(brapi.supportsSymbol("WEGE3")).thenReturn(true);
+		when(brapi.findCompanyProfile("WEGE3")).thenReturn(Optional.of(
+			new CompanyProfile("WEG", "B3", null, "Industrials", "Electrical Equipment", "BR", null)
+		));
+		CompanyProfileService service = new CompanyProfileService(
+			builder,
+			new FinancialModelingPrepProperties("test-key", "https://financialmodelingprep.com"),
+			brapi
+		);
+
+		CompanyProfile profile = service.findProfile("WEGE3").orElseThrow();
+		assertThat(profile.companyName()).isEqualTo("WEG S.A.");
+		assertThat(profile.description()).contains("electric motors");
+		server.verify();
+	}
 }

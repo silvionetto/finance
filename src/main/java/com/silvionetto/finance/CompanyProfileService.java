@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @Service
 public class CompanyProfileService {
@@ -30,30 +31,65 @@ public class CompanyProfileService {
 			throw new IllegalArgumentException("symbol must not be blank");
 		}
 
+		CompanyProfile brapiProfile = null;
+		RuntimeException brapiFailure = null;
 		if (this.brapiMarketDataTool.isConfigured() && this.brapiMarketDataTool.supportsSymbol(symbol)) {
-			Optional<CompanyProfile> profile = this.brapiMarketDataTool.findCompanyProfile(symbol);
-			if (profile.isPresent()) {
-				return profile;
+			try {
+				brapiProfile = this.brapiMarketDataTool.findCompanyProfile(symbol).orElse(null);
+				if (hasCompanyDetails(brapiProfile)) {
+					return Optional.of(brapiProfile);
+				}
+			} catch (RestClientException | IllegalStateException ex) {
+				brapiFailure = ex;
 			}
 		}
 
 		if (this.properties.apiKey() == null || this.properties.apiKey().isBlank()) {
-			return Optional.empty();
+			if (brapiFailure != null) {
+				throw brapiFailure;
+			}
+			return Optional.ofNullable(brapiProfile);
 		}
 
-		List<Map<String, Object>> profiles = this.restClient.get()
-			.uri(uriBuilder -> uriBuilder
-				.path("/stable/profile")
-				.queryParam("symbol", symbol.trim().toUpperCase(Locale.ROOT))
-				.queryParam("apikey", this.properties.apiKey())
-				.build())
-			.retrieve()
-			.body(new ParameterizedTypeReference<>() {});
+		List<Map<String, Object>> profiles;
+		try {
+			profiles = this.restClient.get()
+				.uri(uriBuilder -> uriBuilder
+					.path("/stable/profile")
+					.queryParam("symbol", symbol.trim().toUpperCase(Locale.ROOT))
+					.queryParam("apikey", this.properties.apiKey())
+					.build())
+				.retrieve()
+				.body(new ParameterizedTypeReference<>() {});
+		} catch (RestClientException ex) {
+			if (brapiFailure != null) {
+				ex.addSuppressed(brapiFailure);
+			}
+			if (hasDescription(brapiProfile)) {
+				return Optional.of(brapiProfile);
+			}
+			throw ex;
+		}
 
 		if (profiles == null || profiles.isEmpty()) {
-			return Optional.empty();
+			if (brapiFailure != null) {
+				throw brapiFailure;
+			}
+			return Optional.ofNullable(brapiProfile);
 		}
-		return Optional.of(mapProfile(profiles.getFirst()));
+		CompanyProfile fmpProfile = mapProfile(profiles.getFirst());
+		if (hasCompanyDetails(fmpProfile) || brapiProfile == null || !hasDescription(brapiProfile)) {
+			return Optional.of(fmpProfile);
+		}
+		return Optional.of(brapiProfile);
+	}
+
+	private static boolean hasCompanyDetails(CompanyProfile profile) {
+		return profile != null && profile.hasCompanyName() && profile.hasDescription();
+	}
+
+	private static boolean hasDescription(CompanyProfile profile) {
+		return profile != null && profile.hasDescription();
 	}
 
 	private static CompanyProfile mapProfile(Map<String, Object> profile) {

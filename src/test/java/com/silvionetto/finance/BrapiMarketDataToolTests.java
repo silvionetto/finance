@@ -217,6 +217,30 @@ class BrapiMarketDataToolTests {
 	}
 
 	@Test
+	void mapsLongBusinessSummaryAsCompanyDescription() {
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+		server.expect(requestTo("https://brapi.dev/api/v2/stocks/profile?symbols=WEGE3"))
+			.andExpect(method(HttpMethod.GET))
+			.andRespond(withSuccess("""
+				{
+				  "results": [{
+				    "symbol": "WEGE3",
+				    "data": {
+				      "name": "WEG",
+				      "longBusinessSummary": "Manufactures electric motors and industrial equipment."
+				    }
+				  }]
+				}
+				""", MediaType.APPLICATION_JSON));
+		BrapiMarketDataTool tool = new BrapiMarketDataTool(builder, new BrapiProperties("token", "https://brapi.dev"));
+
+		assertThat(tool.findCompanyProfile("WEGE3").orElseThrow().description())
+			.isEqualTo("Manufactures electric motors and industrial equipment.");
+		server.verify();
+	}
+
+	@Test
 	void returnsStatisticsSummary() {
 		RestClient.Builder builder = RestClient.builder();
 		MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

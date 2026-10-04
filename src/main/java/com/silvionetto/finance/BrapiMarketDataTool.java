@@ -228,7 +228,11 @@ public class BrapiMarketDataTool {
 		return java.util.Optional.of(new CompanyProfile(
 			firstNonBlank(stringValue(data.get("name")), stringValue(data.get("longName"))),
 			stringValue(data.get("exchange")),
-			stringValue(data.get("description")),
+			firstNonBlank(
+				stringValue(data.get("description")),
+				stringValue(data.get("longDescription")),
+				stringValue(data.get("longBusinessSummary"))
+			),
 			stringValue(data.get("sector")),
 			stringValue(data.get("industry")),
 			stringValue(data.get("country")),

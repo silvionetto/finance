@@ -39,7 +39,25 @@ class WatchlistControllerTests {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"symbolOrCompanyName\":\"AAPL\"}"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.symbol").value("AAPL"));
+			.andExpect(jsonPath("$.symbol").value("AAPL"))
+			.andExpect(jsonPath("$.companyName").value("Apple Inc"));
+	}
+
+	@Test
+	void addReturnsExplicitErrorWhenCompanyProfileCannotBeFound() throws Exception {
+		WatchlistService watchlistService = mock(WatchlistService.class);
+		when(watchlistService.addToWatchlist(anyString()))
+			.thenThrow(new org.springframework.web.server.ResponseStatusException(
+				org.springframework.http.HttpStatusCode.valueOf(422),
+				"Company name and description could not be found for AAPL. The ticker was not added."
+			));
+		MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new WatchlistController(watchlistService)).build();
+
+		mockMvc.perform(post("/api/watchlist")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"symbolOrCompanyName\":\"AAPL\"}"))
+			.andExpect(status().is(422))
+			.andExpect(jsonPath("$.message").value("Company name and description could not be found for AAPL. The ticker was not added."));
 	}
 
 	@Test

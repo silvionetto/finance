@@ -9,4 +9,11 @@ public record CompanyProfile(
 	String country,
 	String website
 ) {
+	public boolean hasCompanyName() {
+		return this.companyName != null && !this.companyName.isBlank();
+	}
+
+	public boolean hasDescription() {
+		return this.description != null && !this.description.isBlank();
+	}
 }

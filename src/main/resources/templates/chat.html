@@ -222,6 +222,7 @@
 		.watchlist-item { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; }
 		.watchlist-item strong { display: block; font-size: 1rem; }
 		.watchlist-item small { display: block; color: #64748b; margin-top: 0.2rem; }
+		.watchlist-item .watchlist-description { margin: 0.5rem 0 0; color: #334155; font-size: 0.85rem; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 		.watchlist-empty { padding: 1rem; border-radius: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; color: #64748b; }
 		.sidebar-card {
 			display: grid;
@@ -614,16 +615,6 @@
 		return `${fallback} (status ${response.status})`;
 	}
 
-	function formatWatchlistSubtitle(entry) {
-		if (entry.companyName && entry.companyName.trim()) {
-			return entry.companyName;
-		}
-		if (entry.updatedAt) {
-			return `Added ${new Date(entry.updatedAt).toLocaleString()}`;
-		}
-		return 'Saved in your watchlist';
-	}
-
 	function formatCurrency(value, currencyCode) {
 		if (value === null || value === undefined || value === '') {
 			return 'n/a';
@@ -740,14 +731,22 @@
 			item.className = 'watchlist-item';
 
 			const details = document.createElement('div');
-			const symbol = document.createElement('strong');
+			const companyName = document.createElement('strong');
+			const knownCompanyName = entry.companyName && entry.companyName.trim() && entry.companyName.trim() !== entry.symbol;
+			companyName.textContent = knownCompanyName ? entry.companyName : 'Company details unavailable';
+			const symbol = document.createElement('small');
 			const symbolLink = document.createElement('a');
 			symbolLink.href = `/stocks/${encodeURIComponent(entry.symbol)}`;
 			symbolLink.textContent = entry.symbol;
 			symbol.append(symbolLink);
-			const subtitle = document.createElement('small');
-			subtitle.textContent = formatWatchlistSubtitle(entry);
-			details.append(symbol, subtitle);
+			details.append(companyName, symbol);
+			if (entry.companyDescription && entry.companyDescription.trim()) {
+				const description = document.createElement('p');
+				description.className = 'watchlist-description';
+				description.textContent = entry.companyDescription.trim();
+				description.title = entry.companyDescription.trim();
+				details.appendChild(description);
+			}
 
 			const removeButton = document.createElement('button');
 			removeButton.type = 'button';
@@ -909,7 +908,7 @@
 			const entry = await response.json();
 			await loadWatchlist();
 			watchlistInput.value = '';
-			watchlistStatus.textContent = `${entry.symbol} added to the watchlist.`;
+			watchlistStatus.textContent = `${entry.companyName} (${entry.symbol}) added to the watchlist.`;
 		} catch (error) {
 			watchlistStatus.textContent = readErrorMessage(error, 'Unable to add watchlist item.');
 		} finally {

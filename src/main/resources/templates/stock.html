@@ -26,6 +26,12 @@
 		.analysis-markdown th{background:rgba(191,219,254,.45)}
 		.analysis-markdown hr{border:0;border-top:1px solid #93c5fd}
 		.analysis-plain-text{margin:0;white-space:pre-wrap;word-break:break-word}
+		.company-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin:1rem 0 0}
+		.company-facts div{min-width:0}
+		.company-facts dt{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+		.company-facts dd{margin:.25rem 0 0;line-height:1.5;overflow-wrap:anywhere}
+		.company-description{line-height:1.6;white-space:pre-line}
+		.ticker-label{color:#64748b;font-weight:600}
 		.actions{display:flex;gap:.75rem;align-items:center}.button{border:0;border-radius:999px;padding:.8rem 1.25rem;background:#2563eb;color:#fff;text-decoration:none;cursor:pointer}#status{color:#475569}
 	</style>
 </head>
@@ -35,8 +41,24 @@
 	<a href="/">Back to workspace</a>
 	<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 	<section class="card">
-		<h1 th:text="${entry.symbol()}">AAPL</h1>
-		<p th:text="${entry.companyName()}">Apple Inc.</p>
+		<h1 id="company-overview-title" th:text="${companyOverview.companyName()}">Apple Inc.</h1>
+		<p class="ticker-label">Ticker: <span th:text="${companyOverview.symbol()}">AAPL</span></p>
+		<p class="company-description" th:if="${companyOverview.description() != null and !#strings.isEmpty(companyOverview.description())}" th:text="${companyOverview.description()}">Company description</p>
+		<dl class="company-facts">
+			<div th:if="${companyOverview.market() != null and !#strings.isEmpty(companyOverview.market())}">
+				<dt>Market / exchange</dt><dd th:text="${companyOverview.market()}">NASDAQ</dd>
+			</div>
+			<div th:if="${companyOverview.sector() != null and !#strings.isEmpty(companyOverview.sector())}">
+				<dt>Sector</dt><dd th:text="${companyOverview.sector()}">Technology</dd>
+			</div>
+			<div th:if="${companyOverview.industry() != null and !#strings.isEmpty(companyOverview.industry())}">
+				<dt>Industry</dt><dd th:text="${companyOverview.industry()}">Consumer Electronics</dd>
+			</div>
+			<div th:if="${companyOverview.country() != null and !#strings.isEmpty(companyOverview.country())}">
+				<dt>Country</dt><dd th:text="${companyOverview.country()}">United States</dd>
+			</div>
+		</dl>
+		<p th:if="${(companyOverview.market() == null or #strings.isEmpty(companyOverview.market())) and (companyOverview.description() == null or #strings.isEmpty(companyOverview.description())) and (companyOverview.sector() == null or #strings.isEmpty(companyOverview.sector())) and (companyOverview.industry() == null or #strings.isEmpty(companyOverview.industry())) and (companyOverview.country() == null or #strings.isEmpty(companyOverview.country()))}">Company profile details are not available for this ticker.</p>
 		<div class="actions">
 			<button id="new-analysis" class="button" type="button">Create new analysis</button>
 			<button id="new-prediction" class="button" type="button">Create prediction</button>

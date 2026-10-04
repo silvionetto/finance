@@ -188,15 +188,56 @@ public class BrapiMarketDataTool {
 
 	@Tool(description = "Get company profile information for a Brazilian stock ticker symbol using BRAPI")
 	public String getBrazilianCompanyProfile(String symbol) {
-		SeriesResult seriesResult = fetchFundamentalSeries("/api/v2/stocks/profile", symbol);
+		requireApiToken();
+		CompanyProfile profile = findCompanyProfile(symbol)
+			.orElseThrow(() -> new IllegalStateException("No BRAPI profile data found for symbol: " + symbol));
 		return "symbol=%s, name=%s, sector=%s, industry=%s, website=%s, country=%s".formatted(
-			seriesResult.symbol(),
-			defaultIfBlank(firstNonBlank(stringValue(seriesResult.data().get("name")), stringValue(seriesResult.data().get("longName"))), "n/a"),
-			defaultIfBlank(stringValue(seriesResult.data().get("sector")), "n/a"),
-			defaultIfBlank(stringValue(seriesResult.data().get("industry")), "n/a"),
-			defaultIfBlank(stringValue(seriesResult.data().get("website")), "n/a"),
-			defaultIfBlank(stringValue(seriesResult.data().get("country")), "n/a")
+			normalizeBrazilianSymbol(symbol),
+			defaultIfBlank(profile.companyName(), "n/a"),
+			defaultIfBlank(profile.sector(), "n/a"),
+			defaultIfBlank(profile.industry(), "n/a"),
+			defaultIfBlank(profile.website(), "n/a"),
+			defaultIfBlank(profile.country(), "n/a")
 		);
+	}
+
+	public java.util.Optional<CompanyProfile> findCompanyProfile(String symbol) {
+		if (symbol == null || symbol.isBlank()) {
+			throw new IllegalArgumentException("symbol must not be blank");
+		}
+		String normalized = normalizeBrazilianSymbol(symbol);
+		if (!supportsSymbol(normalized)) {
+			throw new IllegalArgumentException("BRAPI supports only Brazilian ticker symbols");
+		}
+		if (!isConfigured()) {
+			return java.util.Optional.empty();
+		}
+
+		Map<String, Object> response = get(uriBuilder -> uriBuilder
+			.path("/api/v2/stocks/profile")
+			.queryParam("symbols", normalized)
+			.build());
+		List<Map<String, Object>> results = listOfMaps(response.get("results"));
+		if (results.isEmpty()) {
+			return java.util.Optional.empty();
+		}
+		Map<String, Object> data = map(results.getFirst().get("data"));
+		if (data.isEmpty()) {
+			return java.util.Optional.empty();
+		}
+		return java.util.Optional.of(new CompanyProfile(
+			firstNonBlank(stringValue(data.get("name")), stringValue(data.get("longName"))),
+			stringValue(data.get("exchange")),
+			firstNonBlank(
+				stringValue(data.get("description")),
+				stringValue(data.get("longDescription")),
+				stringValue(data.get("longBusinessSummary"))
+			),
+			stringValue(data.get("sector")),
+			stringValue(data.get("industry")),
+			stringValue(data.get("country")),
+			stringValue(data.get("website"))
+		));
 	}
 
 	@Tool(description = "Get valuation and trading statistics for a Brazilian stock ticker symbol using BRAPI")

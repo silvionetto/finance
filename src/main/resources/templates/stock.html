@@ -8,6 +8,8 @@
 		main{max-width:1000px;margin:0 auto;padding:2rem}
 		.card{background:#fff;border-radius:16px;padding:1.5rem;margin-top:1rem;box-shadow:0 8px 30px rgba(15,23,42,.08)}
 		.analysis{border-top:1px solid #e2e8f0;padding-top:1rem;margin-top:1rem}
+		.analysis summary{cursor:pointer;font-weight:600}
+		.analysis summary:focus-visible{outline:2px solid #2563eb;outline-offset:4px;border-radius:4px}
 		.analysis-markdown{display:grid;gap:.75rem;line-height:1.5}
 		.analysis-markdown>:first-child{margin-top:0}
 		.analysis-markdown>:last-child{margin-bottom:0}
@@ -43,13 +45,15 @@
 		<div th:replace="~{fragments/loading-indicator :: loadingIndicator}"></div>
 	</section>
 	<section class="card">
-		<h2>Past analyses</h2>
-		<p th:if="${#lists.isEmpty(analyses)}">No analyses saved yet.</p>
+		<h2>Analyses and predictions</h2>
+		<p th:if="${#lists.isEmpty(analyses)}">No analyses or predictions saved yet.</p>
 		<article class="analysis" th:each="analysis : ${analyses}">
-			<header><strong th:text="${analysis.type() + ' - ' + #temporals.format(analysis.createdAt(), 'yyyy-MM-dd HH:mm')}">ANALYSIS - 2026-09-18</strong></header>
-			<div class="analysis-markdown" th:attr="data-markdown=${analysis.generatedOutput()}">
-				<pre class="analysis-plain-text" th:text="${analysis.generatedOutput()}">Report</pre>
-			</div>
+			<details>
+				<summary th:text="${analysis.type() + ' - ' + #temporals.format(analysis.createdAt(), 'yyyy-MM-dd HH:mm')}">ANALYSIS - 2026-09-18</summary>
+				<div class="analysis-markdown" th:attr="data-markdown=${analysis.generatedOutput()}">
+					<pre class="analysis-plain-text" th:text="${analysis.generatedOutput()}">Report</pre>
+				</div>
+			</details>
 		</article>
 	</section>
 	<section class="card">

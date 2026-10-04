@@ -1,6 +1,7 @@
 package com.silvionetto.finance;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -22,6 +23,22 @@ public class CompanyTickerCatalog {
 				rs.getString("exchange")
 			)
 		);
+	}
+
+	public Optional<CompanyTickerEntry> findByTickerSymbol(String tickerSymbol) {
+		if (tickerSymbol == null || tickerSymbol.isBlank()) {
+			throw new IllegalArgumentException("tickerSymbol must not be blank");
+		}
+		List<CompanyTickerEntry> matches = this.jdbcTemplate.query(
+			"SELECT company_name, ticker_symbol, exchange FROM company_ticker_catalog WHERE UPPER(ticker_symbol) = UPPER(?)",
+			(rs, rowNum) -> new CompanyTickerEntry(
+				rs.getString("company_name"),
+				rs.getString("ticker_symbol"),
+				rs.getString("exchange")
+			),
+			tickerSymbol.trim()
+		);
+		return matches.stream().findFirst();
 	}
 
 	public void save(List<CompanyTickerEntry> entries) {

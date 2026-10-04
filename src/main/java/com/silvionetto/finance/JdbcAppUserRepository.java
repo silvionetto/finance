@@ -31,6 +31,22 @@ public class JdbcAppUserRepository implements AppUserRepository {
 	}
 
 	@Override
+	public Optional<AppUser> findByGoogleSubject(String subject) {
+		List<AppUser> users = this.jdbcTemplate.query(
+			"""
+				SELECT users.id, users.username, users.password_hash, users.role, users.locked,
+					users.created_at, users.updated_at
+				FROM app_users users
+				JOIN app_user_oauth_identities identities ON identities.user_id = users.id
+				WHERE identities.provider = 'google' AND identities.subject = ?
+				""",
+			this::mapRow,
+			subject
+		);
+		return users.stream().findFirst();
+	}
+
+	@Override
 	public List<AppUser> findAll() {
 		return this.jdbcTemplate.query(
 			"""
@@ -43,43 +59,31 @@ public class JdbcAppUserRepository implements AppUserRepository {
 	}
 
 	@Override
-	public AppUser save(String username, String passwordHash, String role, boolean locked) {
-		this.jdbcTemplate.update(
+	public AppUser createGoogleUser(String username, String passwordHash, String role, String subject, String email) {
+		AppUser user = this.jdbcTemplate.queryForObject(
 			"""
 				INSERT INTO app_users (username, password_hash, role, locked)
-				VALUES (?, ?, ?, ?)
-				ON CONFLICT (username) DO UPDATE SET
-					password_hash = EXCLUDED.password_hash,
-					role = EXCLUDED.role,
-					locked = EXCLUDED.locked,
-					updated_at = CURRENT_TIMESTAMP
+				VALUES (?, ?, ?, FALSE)
+				RETURNING id, username, password_hash, role, locked, created_at, updated_at
 				""",
+			this::mapRow,
 			username,
 			passwordHash,
-			role,
-			locked
+			role
 		);
-		return findByUsername(username).orElseThrow();
-	}
-
-	@Override
-	public AppUser updatePassword(String username, String passwordHash) {
+		if (user == null) {
+			throw new IllegalStateException("Google user account could not be created");
+		}
 		this.jdbcTemplate.update(
-			"UPDATE app_users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?",
-			passwordHash,
-			username
+			"""
+				INSERT INTO app_user_oauth_identities (user_id, provider, subject, email)
+				VALUES (?, 'google', ?, ?)
+				""",
+			user.id(),
+			subject,
+			email
 		);
-		return findByUsername(username).orElseThrow();
-	}
-
-	@Override
-	public boolean existsByUsername(String username) {
-		Integer count = this.jdbcTemplate.queryForObject(
-			"SELECT COUNT(*) FROM app_users WHERE username = ?",
-			Integer.class,
-			username
-		);
-		return count != null && count > 0;
+		return user;
 	}
 
 	@Override

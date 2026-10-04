@@ -68,6 +68,27 @@ The current defaults are:
 
 For a local or alternate OpenAI-compatible provider, set `OPENAI_BASE_URL` and `OPENAI_MODEL` to match that service.
 
+### Google sign-in
+
+The app uses Google OpenID Connect as its only sign-in method. To configure it:
+
+1. In the Google Cloud Console, select or create a project and configure its OAuth consent screen. Add any test users required by the consent-screen publishing mode.
+2. Create an OAuth client ID with application type **Web application**. Add these exact authorized redirect URIs:
+   - Local: `http://localhost:8080/login/oauth2/code/google`
+   - Deployed: `https://<your-application-host>/login/oauth2/code/google` (use the HTTPS host shown by the deployment output).
+3. Put the client values in the local `.env` file (do not commit them):
+
+   ```properties
+   GOOGLE_CLIENT_ID=<your-google-oauth-client-id>
+   GOOGLE_CLIENT_SECRET=<your-google-oauth-client-secret>
+   FINANCE_GOOGLE_ADMIN_EMAILS=admin@example.com
+   ```
+
+   `FINANCE_GOOGLE_ADMIN_EMAILS` is a comma-separated list of verified Google email addresses that should receive the `ADMIN` role when their app account is first created. All other first-time Google accounts receive `USER`.
+4. Start the app with `gradlew.bat bootRun`, open `http://localhost:8080`, and choose **Continue with Google**.
+
+Google identities are stored by Google's stable subject ID; their email is not used to link an existing local account. Existing username/password accounts and their data remain in the database but can no longer sign in automatically. If a Google email collides with a legacy username, sign-in is rejected until that account is explicitly migrated or linked. Existing Google-linked roles are stored in the application database; updating the admin email list does not silently change a user's existing role.
+
 ### Local PostgreSQL
 
 Start the database with:
@@ -223,9 +244,12 @@ azd env set AZURE_LOCATION westeurope
 azd env set DB_ADMIN_LOGIN <postgres-admin-login>
 azd env set DB_ADMIN_PASSWORD <postgres-admin-password>
 azd env set OPENAI_API_KEY <openai-compatible-api-key>
-azd env set FINANCE_BOOTSTRAP_ADMIN_PASSWORD <admin-password>
-azd env set FINANCE_BOOTSTRAP_USER_PASSWORD <user-password>
+azd env set GOOGLE_CLIENT_ID <google-oauth-client-id>
+azd env set GOOGLE_CLIENT_SECRET <google-oauth-client-secret>
+azd env set FINANCE_GOOGLE_ADMIN_EMAILS <comma-separated-admin-emails>
 ```
+
+The OAuth client secret is stored in Key Vault and supplied to App Service through a Key Vault reference. Add the deployed HTTPS callback URI shown above to the same Google OAuth client before signing in.
 
 Optional provider credentials:
 

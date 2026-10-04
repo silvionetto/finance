@@ -9,10 +9,10 @@ param dbAdminPassword string
 
 @secure()
 param openAiApiKey string
+param googleClientId string
 @secure()
-param bootstrapAdminPassword string
-@secure()
-param bootstrapUserPassword string
+param googleClientSecret string
+param googleAdminEmails string = ''
 
 @secure()
 param polygonApiKey string = ''
@@ -185,19 +185,11 @@ resource openAiApiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   }
 }
 
-resource bootstrapAdminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+resource googleClientSecretKeyVaultSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
-  name: 'finance-bootstrap-admin-password'
+  name: 'google-client-secret'
   properties: {
-    value: bootstrapAdminPassword
-  }
-}
-
-resource bootstrapUserPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: keyVault
-  name: 'finance-bootstrap-user-password'
-  properties: {
-    value: bootstrapUserPassword
+    value: googleClientSecret
   }
 }
 
@@ -270,12 +262,16 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
           value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=${openAiApiKeySecret.name})'
         }
         {
-          name: 'FINANCE_BOOTSTRAP_ADMIN_PASSWORD'
-          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=${bootstrapAdminPasswordSecret.name})'
+          name: 'GOOGLE_CLIENT_ID'
+          value: googleClientId
         }
         {
-          name: 'FINANCE_BOOTSTRAP_USER_PASSWORD'
-          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=${bootstrapUserPasswordSecret.name})'
+          name: 'GOOGLE_CLIENT_SECRET'
+          value: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=${googleClientSecretKeyVaultSecret.name})'
+        }
+        {
+          name: 'FINANCE_GOOGLE_ADMIN_EMAILS'
+          value: googleAdminEmails
         }
         {
           name: 'POLYGON_API_KEY'

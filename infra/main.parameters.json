@@ -17,11 +17,14 @@
     "openAiApiKey": {
       "value": "${OPENAI_API_KEY}"
     },
-    "bootstrapAdminPassword": {
-      "value": "${FINANCE_BOOTSTRAP_ADMIN_PASSWORD}"
+    "googleClientId": {
+      "value": "${GOOGLE_CLIENT_ID}"
     },
-    "bootstrapUserPassword": {
-      "value": "${FINANCE_BOOTSTRAP_USER_PASSWORD}"
+    "googleClientSecret": {
+      "value": "${GOOGLE_CLIENT_SECRET}"
+    },
+    "googleAdminEmails": {
+      "value": "${FINANCE_GOOGLE_ADMIN_EMAILS}"
     },
     "polygonApiKey": {
       "value": "${POLYGON_API_KEY}"

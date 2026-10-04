@@ -30,20 +30,20 @@ class ChatPageControllerTests {
 	}
 
 	@Test
-	void loginTemplateIncludesCsrfField() throws Exception {
+	void loginTemplateUsesGoogleAuthorization() throws Exception {
 		String template = StreamUtils.copyToString(
 			new ClassPathResource("templates/login.html").getInputStream(),
 			StandardCharsets.UTF_8
 		);
 
 		assertThat(template, containsString("xmlns:th=\"http://www.thymeleaf.org\""));
-		assertThat(template, containsString("form method=\"post\" action=\"/login\""));
-		assertThat(template, containsString("th:name=\"${_csrf.parameterName}\""));
-		assertThat(template, containsString("th:value=\"${_csrf.token}\""));
+		assertThat(template, containsString("href=\"/oauth2/authorization/google\""));
+		assertThat(template, containsString("Continue with Google"));
+		assertThat(template, containsString("configured Google email addresses"));
+		assertTrue(!template.contains("name=\"password\""));
+		assertTrue(!template.contains("action=\"/login\""));
 		assertThat(template, containsString("th:if=\"${param.error}\""));
 		assertThat(template, containsString("th:if=\"${param.logout}\""));
-		assertThat(template, containsString("id=\"rememberMeVisual\""));
-		assertThat(template, containsString("Visual preference only."));
 	}
 
 	@Test

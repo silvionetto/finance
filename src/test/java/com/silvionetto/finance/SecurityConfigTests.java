@@ -1,87 +1,42 @@
 package com.silvionetto.finance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
 class SecurityConfigTests {
 
 	@Test
-	void bootstrapUserIsLoadedWithUserRole() {
-		AppUserRepository repository = new StubAppUserRepository(
-			Optional.of(new AppUser(1L, "user", "hash", "USER", false, Instant.EPOCH, Instant.EPOCH))
-		);
-		AppUserDetailsService service = new AppUserDetailsService(repository);
+	void trustedAdminEmailsAreNormalized() {
+		GoogleLoginProperties properties = new GoogleLoginProperties(List.of(" Admin@Example.com ", "user@example.com"));
 
-		UserDetails userDetails = service.loadUserByUsername("user");
-
-		assertThat(userDetails.getUsername()).isEqualTo("user");
-		assertThat(userDetails.getAuthorities()).extracting("authority").containsExactly("ROLE_USER");
-		assertThat(userDetails.isAccountNonLocked()).isTrue();
+		assertThat(properties.isAdminEmail("admin@example.COM")).isTrue();
+		assertThat(properties.isAdminEmail("unknown@example.com")).isFalse();
 	}
 
 	@Test
-	void lockedUserIsLoadedAsLocked() {
-		AppUserRepository repository = new StubAppUserRepository(
-			Optional.of(new AppUser(1L, "admin", "hash", "ADMIN", true, Instant.EPOCH, Instant.EPOCH))
+	void oidcPrincipalUsesApplicationUsernameForDataScoping() {
+		OidcUser delegate = mock(OidcUser.class);
+		doReturn(List.of(new SimpleGrantedAuthority("SCOPE_openid"))).when(delegate).getAuthorities();
+		when(delegate.getAttributes()).thenReturn(Map.of("sub", "google-subject", "email", "person@example.com"));
+		FinanceOidcUser principal = new FinanceOidcUser(
+			delegate,
+			"person@example.com",
+			new SimpleGrantedAuthority("ROLE_USER")
 		);
-		AppUserDetailsService service = new AppUserDetailsService(repository);
 
-		UserDetails userDetails = service.loadUserByUsername("admin");
-
-		assertThat(userDetails.isAccountNonLocked()).isFalse();
-	}
-
-	private static final class StubAppUserRepository implements AppUserRepository {
-
-		private final Optional<AppUser> user;
-
-		private StubAppUserRepository(Optional<AppUser> user) {
-			this.user = user;
-		}
-
-		@Override
-		public Optional<AppUser> findByUsername(String username) {
-			return this.user.filter(candidate -> candidate.username().equals(username));
-		}
-
-		@Override
-		public List<AppUser> findAll() {
-			return this.user.stream().toList();
-		}
-
-		@Override
-		public AppUser save(String username, String passwordHash, String role, boolean locked) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public AppUser updatePassword(String username, String passwordHash) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public boolean existsByUsername(String username) {
-			return findByUsername(username).isPresent();
-		}
-
-		@Override
-		public long countByRole(String role) {
-			return this.user.filter(candidate -> candidate.role().equals(role)).isPresent() ? 1L : 0L;
-		}
-
-		@Override
-		public void deleteByUsername(String username) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public void updateLocked(String username, boolean locked) {
-			throw new UnsupportedOperationException();
-		}
+		assertThat(principal.getName()).isEqualTo("person@example.com");
+		String subject = principal.getAttribute("sub");
+		assertThat(subject).isEqualTo("google-subject");
+		assertThat(principal.getAuthorities())
+			.extracting("authority")
+			.contains("SCOPE_openid", "ROLE_USER");
 	}
 }

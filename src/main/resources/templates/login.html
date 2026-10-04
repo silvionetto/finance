@@ -226,103 +226,14 @@
 			color: var(--success-text);
 		}
 
-		form {
-			display: grid;
-			gap: 1rem;
-		}
-
-		.field {
-			display: grid;
-			gap: 0.55rem;
-		}
-
-		.field-label {
-			font-size: 0.92rem;
-			font-weight: 700;
-			color: var(--text-primary);
-		}
-
 		.field-hint {
 			margin: 0;
 			font-size: 0.86rem;
 			color: var(--text-muted);
 		}
 
-		.input-shell {
-			position: relative;
-		}
-
-		input[type="text"],
-		input[type="password"] {
-			width: 100%;
-			border: 1px solid var(--input-border);
-			border-radius: 16px;
-			padding: 0.95rem 1rem;
-			background: var(--input-background);
-			font: inherit;
-			color: var(--text-primary);
-			outline: none;
-			transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-		}
-
-		input[type="text"]::placeholder,
-		input[type="password"]::placeholder {
-			color: #94a3b8;
-		}
-
-		input[type="text"]:focus,
-		input[type="password"]:focus,
-		input[type="text"]:focus-visible,
-		input[type="password"]:focus-visible {
-			border-color: var(--input-border-strong);
-			box-shadow: 0 0 0 4px var(--accent-soft);
-			transform: translateY(-1px);
-		}
-
-		input[type="text"]:invalid:not(:placeholder-shown),
-		input[type="password"]:invalid:not(:placeholder-shown) {
-			border-color: #ef4444;
-			box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
-		}
-
-		.form-row {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			gap: 1rem;
-			flex-wrap: wrap;
-		}
-
-		.checkbox {
-			display: inline-flex;
-			align-items: flex-start;
-			gap: 0.75rem;
-			cursor: pointer;
-			color: var(--text-secondary);
-			font-size: 0.92rem;
-		}
-
-		.checkbox input {
-			width: 1.05rem;
-			height: 1.05rem;
-			margin: 0.15rem 0 0;
-			accent-color: var(--accent);
-			flex: 0 0 auto;
-		}
-
-		.checkbox strong {
+		.google-button {
 			display: block;
-			color: var(--text-primary);
-		}
-
-		.checkbox span {
-			display: block;
-			margin-top: 0.18rem;
-			font-size: 0.83rem;
-			color: var(--text-muted);
-		}
-
-		button {
 			border: 0;
 			border-radius: 999px;
 			padding: 0.95rem 1.25rem;
@@ -330,18 +241,19 @@
 			color: #eff6ff;
 			font: inherit;
 			font-weight: 700;
-			cursor: pointer;
+			text-align: center;
+			text-decoration: none;
 			box-shadow: 0 16px 30px rgba(37, 99, 235, 0.28);
 			transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 		}
 
-		button:hover {
+		.google-button:hover {
 			transform: translateY(-1px);
 			box-shadow: 0 20px 34px rgba(37, 99, 235, 0.34);
 			filter: saturate(1.05);
 		}
 
-		button:focus-visible {
+		.google-button:focus-visible {
 			outline: none;
 			box-shadow:
 				0 0 0 4px rgba(191, 219, 254, 0.95),
@@ -402,15 +314,12 @@
 				padding: 1.4rem;
 			}
 
-			.login-footer,
-			.form-row {
+			.login-footer {
 				flex-direction: column;
 				align-items: stretch;
 			}
 
-			button {
-				width: 100%;
-			}
+			.google-button { width: 100%; }
 		}
 	</style>
 </head>
@@ -457,62 +366,20 @@
 			<div class="login-card">
 				<div class="login-card-header">
 					<h2>Welcome back</h2>
-					<p>Use your existing credentials to continue where you left off.</p>
+					<p>Sign in securely with the Google account you use for your finance workspace.</p>
 				</div>
 
 				<div class="notice-stack" aria-live="polite">
 					<div class="notice notice-error" th:if="${param.error}" role="alert">
-						We could not sign you in with those credentials. Check your username and password, then try again.
+						Google sign-in could not be completed. Check your account access and try again.
 					</div>
 					<div class="notice notice-success" th:if="${param.logout}" role="status">
 						You have signed out successfully.
 					</div>
 				</div>
 
-				<form method="post" action="/login">
-					<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
-
-					<div class="field">
-						<label class="field-label" for="username">Username</label>
-						<p class="field-hint">Use the account name configured for your finance workspace.</p>
-						<div class="input-shell">
-							<input
-								id="username"
-								name="username"
-								type="text"
-								autocomplete="username"
-								placeholder="Enter your username"
-								required>
-						</div>
-					</div>
-
-					<div class="field">
-						<label class="field-label" for="password">Password</label>
-						<p class="field-hint">Your password stays private and is submitted with the existing secure login flow.</p>
-						<div class="input-shell">
-							<input
-								id="password"
-								name="password"
-								type="password"
-								autocomplete="current-password"
-								placeholder="Enter your password"
-								required>
-						</div>
-					</div>
-
-					<div class="form-row">
-						<label class="checkbox" for="rememberMeVisual">
-							<input id="rememberMeVisual" type="checkbox">
-							<span>
-								<strong>Remember this device</strong>
-								<span>Visual preference only. Your session still follows the standard sign-in policy.</span>
-							</span>
-						</label>
-						<span class="sr-only">No password recovery link is available on this page.</span>
-					</div>
-
-					<button type="submit">Sign in</button>
-				</form>
+				<a class="google-button" href="/oauth2/authorization/google">Continue with Google</a>
+				<p class="field-hint">New Google accounts are created as regular users. Administrator access is reserved for configured Google email addresses.</p>
 
 				<div class="login-footer">
 					<span>Protected access for your finance dashboard.</span>

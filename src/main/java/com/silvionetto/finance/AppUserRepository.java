@@ -5,10 +5,9 @@ import java.util.Optional;
 
 public interface AppUserRepository {
 	Optional<AppUser> findByUsername(String username);
+	Optional<AppUser> findByGoogleSubject(String subject);
 	List<AppUser> findAll();
-	AppUser save(String username, String passwordHash, String role, boolean locked);
-	AppUser updatePassword(String username, String passwordHash);
-	boolean existsByUsername(String username);
+	AppUser createGoogleUser(String username, String passwordHash, String role, String subject, String email);
 	long countByRole(String role);
 	void deleteByUsername(String username);
 	void updateLocked(String username, boolean locked);

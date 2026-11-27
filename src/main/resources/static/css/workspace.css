@@ -1,319 +1,322 @@
-:root {
-	--finance-navy: #0f172a;
-	--finance-navy-soft: #1e293b;
-	--finance-blue: #2563eb;
-	--finance-blue-strong: #1d4ed8;
-	--finance-blue-soft: #dbeafe;
-	--finance-sky: #38bdf8;
-	--finance-ink: #172033;
-	--finance-muted: #64748b;
-	--finance-line: rgba(148, 163, 184, 0.24);
-	--finance-panel: rgba(255, 255, 255, 0.84);
-	--finance-shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
-	--finance-shadow-small: 0 10px 28px rgba(15, 23, 42, 0.07);
-	font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	color-scheme: light;
-}
-
-* { box-sizing: border-box; }
-
-body {
-	background:
-		radial-gradient(circle at 0% 0%, rgba(96, 165, 250, 0.15), transparent 28rem),
-		radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.1), transparent 26rem),
-		linear-gradient(145deg, #f8fbff 0%, #eef4ff 48%, #f8fafc 100%) !important;
-	color: var(--finance-ink) !important;
-}
-
-body::before {
-	content: "";
-	position: fixed;
-	inset: 0;
-	z-index: -1;
-	pointer-events: none;
-	background: repeating-linear-gradient(
-		90deg,
-		transparent 0,
-		transparent 95px,
-		rgba(148, 163, 184, 0.06) 96px
-	);
-}
-
-main { position: relative; }
-
-.card {
-	border: 1px solid var(--finance-line);
-	background: var(--finance-panel) !important;
-	backdrop-filter: blur(16px);
-	box-shadow: var(--finance-shadow) !important;
-}
-
-h1, h2, h3 {
-	color: var(--finance-navy);
-	letter-spacing: -0.03em;
-}
-
-p,
-.form-hint,
-.status,
-#status,
-#watchlist-status,
-.composer-status-copy p,
-.chat-header-copy p,
-.section-header p {
-	color: var(--finance-muted) !important;
-}
-
-input,
-select,
-textarea {
-	border-color: #cbd5e1 !important;
-	background: rgba(255, 255, 255, 0.9) !important;
-	color: var(--finance-ink) !important;
-	transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-button,
-a.button-link {
-	background: linear-gradient(135deg, var(--finance-blue), var(--finance-blue-strong)) !important;
-	color: #eff6ff !important;
-	font-weight: 700;
-	box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
-}
-
-.chat-secondary-action,
-.sidebar-toggle,
-.composer-toggle,
-.button-secondary,
-.button-link-secondary {
-	background: rgba(226, 232, 240, 0.82) !important;
-	color: var(--finance-navy) !important;
-	box-shadow: none;
-}
-
-.chat-card,
-.sidebar-card {
-	border-radius: 22px !important;
-}
-
-.chat-header,
-.section-header,
-.sidebar-header {
-	border-color: var(--finance-line) !important;
-}
-
-.chat-history-panel,
-.stock-check {
-	border-color: var(--finance-line) !important;
-}
-
-.message {
-	border: 1px solid rgba(147, 197, 253, 0.35);
-	background: rgba(239, 246, 255, 0.86) !important;
-}
-
-.message.user {
-	background: rgba(226, 232, 240, 0.82) !important;
-	border-color: rgba(148, 163, 184, 0.28);
-}
-
-.message.assistant {
-	background: linear-gradient(135deg, rgba(219, 234, 254, 0.95), rgba(239, 246, 255, 0.88)) !important;
-}
-
-.watchlist-item,
-.stock-check-item,
-.wallet-item,
-.empty-state,
-.watchlist-empty {
-	border-color: rgba(203, 213, 225, 0.8) !important;
-	background: rgba(248, 250, 252, 0.78) !important;
-}
-
-.summary-tile {
-	background: linear-gradient(135deg, rgba(219, 234, 254, 0.95), rgba(239, 246, 255, 0.84)) !important;
-	border-color: rgba(147, 197, 253, 0.52) !important;
-}
-
-.wallet-symbol,
-.stock-check-recommendation.hold {
-	color: var(--finance-blue-strong) !important;
-}
-
-.composer-shell {
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.97) 18%, rgba(255, 255, 255, 0.98) 100%) !important;
-	border-color: var(--finance-line) !important;
-}
-
-.workspace-nav {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1.25rem;
-	margin-bottom: 1.5rem;
-	padding: 0.7rem 0.8rem 0.7rem 1rem;
-	border: 1px solid var(--finance-line);
-	border-radius: 18px;
-	background: rgba(255, 255, 255, 0.78);
-	backdrop-filter: blur(18px);
-	box-shadow: var(--finance-shadow-small);
-}
-
-.workspace-brand {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.7rem;
-	color: var(--finance-navy);
-	font-weight: 800;
-	letter-spacing: -0.02em;
-	text-decoration: none;
-}
-
-.workspace-brand-mark {
-	display: grid;
-	place-items: center;
-	width: 2.25rem;
-	height: 2.25rem;
-	border-radius: 12px;
-	background: linear-gradient(135deg, #60a5fa, var(--finance-blue-strong));
-	color: #eff6ff;
-	font-size: 0.75rem;
-	font-weight: 850;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 18px rgba(37, 99, 235, 0.2);
-}
-
-.workspace-nav-menu {
-	display: flex;
-	align-items: center;
-	gap: 0.3rem;
-}
-
-.workspace-nav-link,
-.workspace-nav-logout,
-.workspace-nav-summary {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	height: 2.35rem;
-	min-height: 2.35rem;
-	padding: 0.5rem 0.85rem;
-	border: 0;
-	border-radius: 10px;
-	background: transparent;
-	color: #64748b;
-	font: inherit;
-	font-size: 0.88rem;
-	font-weight: 700;
-	line-height: 1.25;
-	text-decoration: none;
-	cursor: pointer;
-	transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.workspace-nav-link:hover,
-.workspace-nav-link:focus-visible,
-.workspace-nav-logout:hover,
-.workspace-nav-logout:focus-visible,
-.workspace-nav-summary:hover,
-.workspace-nav-summary:focus-visible {
-	background: var(--finance-blue-soft);
-	color: var(--finance-blue-strong);
-}
-
-.workspace-nav-link[aria-current="page"] {
-	background: var(--finance-blue-soft);
-	color: var(--finance-blue-strong);
-	box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
-}
-
-.workspace-nav-logout { color: #b91c1c; }
-
-.workspace-nav-menu form {
-	display: flex;
-	align-items: center;
-	height: 2.35rem;
-	margin: 0;
-}
-
-.workspace-nav-mobile { display: none; }
-
-.workspace-nav-summary { list-style: none; }
-.workspace-nav-summary::-webkit-details-marker { display: none; }
-.workspace-nav-summary::after {
-	content: "▾";
-	margin-left: 0.45rem;
-	font-size: 0.8em;
-}
-.workspace-nav-mobile[open] .workspace-nav-summary::after { content: "▴"; }
-
-button,
-.button-link,
-a.button-link {
-	transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
-}
-
-button:hover,
-.button-link:hover,
-a.button-link:hover {
-	filter: saturate(1.06);
-	transform: translateY(-1px);
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-a:focus-visible {
-	outline: none;
-	box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.42) !important;
-}
-
-@media (max-width: 640px) {
-	.workspace-nav { align-items: flex-start; }
-	.workspace-nav > .workspace-nav-menu { display: none; }
-	.workspace-nav-mobile {
-		display: block;
-		position: relative;
-	}
-	.workspace-nav-mobile .workspace-nav-menu {
-		position: absolute;
-		z-index: 5;
-		top: calc(100% + 0.45rem);
-		right: 0;
-		display: grid;
-		min-width: 11rem;
-		padding: 0.4rem;
-		border: 1px solid var(--finance-line);
-		border-radius: 14px;
-		background: #fff;
-		box-shadow: var(--finance-shadow);
-	}
-	.workspace-nav-mobile .workspace-nav-link,
-	.workspace-nav-mobile .workspace-nav-logout {
-		justify-content: flex-start;
-		width: 100%;
-	}
-}
-
-
-.thinking-indicator {
-	display: grid;
-	gap: 0.65rem;
-	margin-bottom: 0.9rem;
-	padding: 0.85rem 0.95rem;
-	border-radius: 14px;
-	border: 1px solid #bfdbfe;
-	background: linear-gradient(135deg, rgba(219, 234, 254, 0.88), rgba(239, 246, 255, 0.98));
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
-}
-.thinking-indicator[hidden] { display: none; }
-.thinking-indicator-header { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
-.thinking-badge { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4ed8; }
-.thinking-badge::before { content: ""; width: 0.7rem; height: 0.7rem; border-radius: 999px; background: #2563eb; box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); animation: thinking-pulse 1.8s ease-in-out infinite; }
-.thinking-elapsed { font-size: 0.88rem; color: #475569; }
-.thinking-progress { position: relative; height: 0.8rem; border-radius: 999px; overflow: hidden; background: rgba(147, 197, 253, 0.38); }
-.thinking-progress-bar { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #2563eb 0%, #38bdf8 55%, #60a5fa 100%); transform-origin: left center; animation: thinking-progress 1.6s ease-in-out infinite; }
-.thinking-message { margin: 0; font-size: 0.92rem; font-weight: 600; color: #0f172a; }
-.thinking-hint { margin: 0; font-size: 0.84rem; color: #475569; }
-@keyframes thinking-pulse { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); } 70% { box-shadow: 0 0 0 0.55rem rgba(37, 99, 235, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); } }
-@keyframes thinking-progress { 0% { transform: translateX(-65%) scaleX(0.3); } 50% { transform: translateX(-10%) scaleX(0.72); } 100% { transform: translateX(55%) scaleX(0.45); } }
+1| :root {
+2| 	--finance-navy: #0f172a;
+3| 	--finance-navy-soft: #1e293b;
+4| 	--finance-blue: #2563eb;
+5| 	--finance-blue-strong: #1d4ed8;
+6| 	--finance-blue-soft: #dbeafe;
+7| 	--finance-sky: #38bdf8;
+8| 	--finance-ink: #172033;
+9| 	--finance-muted: #64748b;
+10| 	--finance-line: rgba(148, 163, 184, 0.24);
+11| 	--finance-panel: rgba(255, 255, 255, 0.84);
+12| 	--finance-shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
+13| 	--finance-shadow-small: 0 10px 28px rgba(15, 23, 42, 0.07);
+14| 	font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+15| 	color-scheme: light;
+16| }
+17| 
+18| * { box-sizing: border-box; }
+19| 
+20| body {
+21| 	background:
+22| 		radial-gradient(circle at 0% 0%, rgba(96, 165, 250, 0.15), transparent 28rem),
+23| 		radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.1), transparent 26rem),
+24| 		linear-gradient(145deg, #f8fbff 0%, #eef4ff 48%, #f8fafc 100%) !important;
+25| 	color: var(--finance-ink) !important;
+26| }
+27| 
+28| body::before {
+29| 	content: "";
+30| 	position: fixed;
+31| 	inset: 0;
+32| 	z-index: -1;
+33| 	pointer-events: none;
+34| 	background: repeating-linear-gradient(
+35| 		90deg,
+36| 		transparent 0,
+37| 		transparent 95px,
+38| 		rgba(148, 163, 184, 0.06) 96px
+39| 	);
+40| }
+41| 
+42| main { position: relative; }
+43| 
+44| .card {
+45| 	border: 1px solid var(--finance-line);
+46| 	background: var(--finance-panel) !important;
+47| 	backdrop-filter: blur(16px);
+48| 	box-shadow: var(--finance-shadow) !important;
+49| }
+50| 
+51| h1, h2, h3 {
+52| 	color: var(--finance-navy);
+53| 	letter-spacing: -0.03em;
+54| }
+55| 
+56| p,
+57| .form-hint,
+58| .status,
+59| #status,
+60| #watchlist-status,
+61| .composer-status-copy p,
+62| .chat-header-copy p,
+63| .section-header p {
+64| 	color: var(--finance-muted) !important;
+65| }
+66| 
+67| input,
+68| select,
+69| textarea {
+70| 	border-color: #cbd5e1 !important;
+71| 	background: rgba(255, 255, 255, 0.9) !important;
+72| 	color: var(--finance-ink) !important;
+73| 	transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+74| }
+75| 
+76| button,
+77| a.button-link {
+78| 	background: linear-gradient(135deg, var(--finance-blue), var(--finance-blue-strong)) !important;
+79| 	color: #eff6ff !important;
+80| 	font-weight: 700;
+81| 	box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+82| }
+83| 
+84| .chat-secondary-action,
+85| .sidebar-toggle,
+86| .composer-toggle,
+87| .button-secondary,
+88| .button-link-secondary {
+89| 	background: rgba(226, 232, 240, 0.82) !important;
+90| 	color: var(--finance-navy) !important;
+91| 	box-shadow: none;
+92| }
+93| 
+94| .chat-card,
+95| .sidebar-card {
+96| 	border-radius: 22px !important;
+97| }
+98| 
+99| .chat-header,
+100| .section-header,
+101| .sidebar-header {
+102| 	border-color: var(--finance-line) !important;
+103| }
+104| 
+105| .chat-history-panel,
+106| .stock-check {
+107| 	border-color: var(--finance-line) !important;
+108| }
+109| 
+110| .message {
+111| 	border: 1px solid rgba(147, 197, 253, 0.35);
+112| 	background: rgba(239, 246, 255, 0.86) !important;
+113| }
+114| 
+115| .message.user {
+116| 	background: rgba(226, 232, 240, 0.82) !important;
+117| 	border-color: rgba(148, 163, 184, 0.28);
+118| }
+119| 
+120| .message.assistant {
+121| 	background: linear-gradient(135deg, rgba(219, 234, 254, 0.95), rgba(239, 246, 255, 0.88)) !important;
+122| }
+123| 
+124| .watchlist-item,
+125| .stock-check-item,
+126| .wallet-item,
+127| .empty-state,
+128| .watchlist-empty {
+129| 	border-color: rgba(203, 213, 225, 0.8) !important;
+130| 	background: rgba(248, 250, 252, 0.78) !important;
+131| }
+132| 
+133| .summary-tile {
+134| 	background: linear-gradient(135deg, rgba(219, 234, 254, 0.95), rgba(239, 246, 255, 0.84)) !important;
+135| 	border-color: rgba(147, 197, 253, 0.52) !important;
+136| }
+137| 
+138| .wallet-symbol,
+139| .stock-check-recommendation.hold {
+140| 	color: var(--finance-blue-strong) !important;
+141| }
+142| 
+143| .composer-shell {
+144| 	background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.97) 18%, rgba(255, 255, 255, 0.98) 100%) !important;
+145| 	border-color: var(--finance-line) !important;
+146| }
+147| 
+148| .workspace-nav {
+149| 	position: relative;
+150| 	z-index: 20;
+151| 	display: flex;
+152| 	align-items: center;
+153| 	justify-content: space-between;
+154| 	gap: 1.25rem;
+155| 	margin-bottom: 1.5rem;
+156| 	padding: 0.7rem 0.8rem 0.7rem 1rem;
+157| 	border: 1px solid var(--finance-line);
+158| 	border-radius: 18px;
+159| 	background: rgba(255, 255, 255, 0.78);
+160| 	backdrop-filter: blur(18px);
+161| 	box-shadow: var(--finance-shadow-small);
+162| }
+163| 
+164| .workspace-brand {
+165| 	display: inline-flex;
+166| 	align-items: center;
+167| 	gap: 0.7rem;
+168| 	color: var(--finance-navy);
+169| 	font-weight: 800;
+170| 	letter-spacing: -0.02em;
+171| 	text-decoration: none;
+172| }
+173| 
+174| .workspace-brand-mark {
+175| 	display: grid;
+176| 	place-items: center;
+177| 	width: 2.25rem;
+178| 	height: 2.25rem;
+179| 	border-radius: 12px;
+180| 	background: linear-gradient(135deg, #60a5fa, var(--finance-blue-strong));
+181| 	color: #eff6ff;
+182| 	font-size: 0.75rem;
+183| 	font-weight: 850;
+184| 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 18px rgba(37, 99, 235, 0.2);
+185| }
+186| 
+187| .workspace-nav-menu {
+188| 	display: flex;
+189| 	align-items: center;
+190| 	gap: 0.3rem;
+191| }
+192| 
+193| .workspace-nav-link,
+194| .workspace-nav-logout,
+195| .workspace-nav-summary {
+196| 	display: inline-flex;
+197| 	align-items: center;
+198| 	justify-content: center;
+199| 	height: 2.35rem;
+200| 	min-height: 2.35rem;
+201| 	padding: 0.5rem 0.85rem;
+202| 	border: 0;
+203| 	border-radius: 10px;
+204| 	background: transparent;
+205| 	color: #64748b;
+206| 	font: inherit;
+207| 	font-size: 0.88rem;
+208| 	font-weight: 700;
+209| 	line-height: 1.25;
+210| 	text-decoration: none;
+211| 	cursor: pointer;
+212| 	transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+214| }
+215| 
+215| .workspace-nav-link:hover,
+216| .workspace-nav-link:focus-visible,
+217| .workspace-nav-logout:hover,
+218| .workspace-nav-logout:focus-visible,
+219| .workspace-nav-summary:hover,
+220| .workspace-nav-summary:focus-visible {
+221| 	background: var(--finance-blue-soft);
+222| 	color: var(--finance-blue-strong);
+223| }
+224| 
+225| .workspace-nav-link[aria-current="page"] {
+226| 	background: var(--finance-blue-soft);
+227| 	color: var(--finance-blue-strong);
+228| 	box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+229| }
+230| 
+231| .workspace-nav-logout { color: #b91c1c; }
+232| 
+233| .workspace-nav-menu form {
+234| 	display: flex;
+235| 	align-items: center;
+236| 	height: 2.35rem;
+237| 	margin: 0;
+238| }
+239| 
+240| .workspace-nav-mobile { display: none; }
+241| 
+242| .workspace-nav-summary { list-style: none; }
+243| .workspace-nav-summary::-webkit-details-marker { display: none; }
+244| .workspace-nav-summary::after {
+245| 	content: "▾";
+246| 	margin-left: 0.45rem;
+247| 	font-size: 0.8em;
+248| }
+249| .workspace-nav-mobile[open] .workspace-nav-summary::after { content: "▴"; }
+250| 
+251| button,
+252| .button-link,
+253| a.button-link {
+254| 	transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+255| }
+256| 
+257| button:hover,
+258| .button-link:hover,
+259| a.button-link:hover {
+260| 	filter: saturate(1.06);
+261| 	transform: translateY(-1px);
+262| }
+263| 
+264| button:focus-visible,
+265| input:focus-visible,
+266| select:focus-visible,
+267| textarea:focus-visible,
+268| a:focus-visible {
+269| 	outline: none;
+270| 	box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.42) !important;
+271| }
+272| 
+273| @media (max-width: 640px) {
+274| 	.workspace-nav { align-items: flex-start; }
+275| 	.workspace-nav > .workspace-nav-menu { display: none; }
+276| 	.workspace-nav-mobile {
+277| 		display: block;
+278| 		position: relative;
+279| 	}
+280| 	.workspace-nav-mobile .workspace-nav-menu {
+281| 		position: absolute;
+282| 		z-index: 1000;
+283| 		top: calc(100% + 0.45rem);
+284| 		right: 0;
+285| 		display: grid;
+286| 		min-width: 11rem;
+287| 		padding: 0.4rem;
+288| 		border: 1px solid var(--finance-line);
+289| 		border-radius: 14px;
+290| 		background: #fff;
+291| 		box-shadow: var(--finance-shadow);
+292| 	}
+293| 	.workspace-nav-mobile .workspace-nav-link,
+294| 	.workspace-nav-mobile .workspace-nav-logout {
+295| 		justify-content: flex-start;
+296| 		width: 100%;
+297| 	}
+298| }
+299| 
+300| 
+301| .thinking-indicator {
+302| 	display: grid;
+303| 	gap: 0.65rem;
+304| 	margin-bottom: 0.9rem;
+305| 	padding: 0.85rem 0.95rem;
+306| 	border-radius: 14px;
+307| 	border: 1px solid #bfdbfe;
+308| 	background: linear-gradient(135deg, rgba(219, 234, 254, 0.88), rgba(239, 246, 255, 0.98));
+309| 	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+310| }
+311| .thinking-indicator[hidden] { display: none; }
+312| .thinking-indicator-header { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+313| .thinking-badge { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1d4ed8; }
+314| .thinking-badge::before { content: ""; width: 0.7rem; height: 0.7rem; border-radius: 999px; background: #2563eb; box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); animation: thinking-pulse 1.8s ease-in-out infinite; }
+315| .thinking-elapsed { font-size: 0.88rem; color: #475569; }
+316| .thinking-progress { position: relative; height: 0.8rem; border-radius: 999px; overflow: hidden; background: rgba(147, 197, 253, 0.38); }
+317| .thinking-progress-bar { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #2563eb 0%, #38bdf8 55%, #60a5fa 100%); transform-origin: left center; animation: thinking-progress 1.8s ease-in-out infinite; }
+318| .thinking-message { margin: 0; font-size: 0.92rem; font-weight: 600; color: #0f172a; }
+319| .thinking-hint { margin: 0; font-size: 0.84rem; color: #475569; }
+320| @keyframes thinking-pulse { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); } 70% { box-shadow: 0 0 0 0.55rem rgba(37, 99, 235, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); } }
+321| @keyframes thinking-progress { 0% { transform: translateX(-65%) scaleX(0.3); } 50% { transform: translateX(-10%) scaleX(0.72); } 100% { transform: translateX(55%) scaleX(0.45); } }
+322| 
